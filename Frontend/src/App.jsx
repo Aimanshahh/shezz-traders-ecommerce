@@ -20,6 +20,11 @@ import AdminProductForm from './pages/admin/AdminProductForm.jsx'
 import AdminCategories from './pages/admin/AdminCategories.jsx'
 import AdminOrders from './pages/admin/AdminOrders.jsx'
 
+// Device Management (CRM)
+import AdminDevices from './pages/admin/AdminDevices.jsx'
+import AdminDeviceImport from './pages/admin/AdminDeviceImport.jsx'
+import AdminDeviceDetail from './pages/admin/AdminDeviceDetail.jsx'
+
 function PublicLayout({ children }) {
   return <Layout>{children}</Layout>
 }
@@ -34,6 +39,11 @@ function AdminRoutes() {
       <Route path="/admin/products/:id/edit" element={<AdminProductForm />} />
       <Route path="/admin/categories" element={<AdminCategories />} />
       <Route path="/admin/orders" element={<AdminOrders />} />
+
+      {/* CRM: Devices / IMEI */}
+      <Route path="/admin/devices" element={<AdminDevices />} />
+      <Route path="/admin/devices/import" element={<AdminDeviceImport />} />
+      <Route path="/admin/devices/:id" element={<AdminDeviceDetail />} />
     </Routes>
   )
 }

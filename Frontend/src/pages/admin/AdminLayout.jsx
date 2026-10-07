@@ -10,6 +10,7 @@ import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined'
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner'
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined'
 import SearchIcon from '@mui/icons-material/Search'
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined'
@@ -21,6 +22,10 @@ const NAV_ITEMS = [
   { label: 'Products', to: '/admin/products', icon: Inventory2OutlinedIcon },
   { label: 'Categories', to: '/admin/categories', icon: CategoryOutlinedIcon },
   { label: 'Orders', to: '/admin/orders', icon: ReceiptLongOutlinedIcon },
+]
+
+const CRM_ITEMS = [
+  { label: 'Devices / IMEI', to: '/admin/devices', icon: QrCodeScannerIcon, prefix: true },
 ]
 
 const SIDEBAR_WIDTH = 260
@@ -46,6 +51,73 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
         .join('')
         .toUpperCase()
     : 'SA'
+
+  const renderNavGroup = (heading, items) => (
+    <Box sx={{ mb: 2 }}>
+      <Typography
+        sx={{
+          fontSize: '0.62rem',
+          fontWeight: 700,
+          letterSpacing: '0.18em',
+          textTransform: 'uppercase',
+          color: 'rgba(255,255,255,0.35)',
+          px: 3,
+          mb: 1,
+        }}
+      >
+        {heading}
+      </Typography>
+
+      <Stack spacing={0.25}>
+        {items.map((item) => {
+          const active = item.prefix
+            ? location.pathname.startsWith(item.to)
+            : location.pathname === item.to
+          return (
+            <Box
+              key={item.label}
+              component={NavLink}
+              to={item.to}
+              onClick={() => setMobileOpen(false)}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                mx: 1.5,
+                px: 1.75,
+                py: 1.15,
+                borderRadius: 1.5,
+                textDecoration: 'none',
+                color: active ? '#fff' : 'rgba(255,255,255,0.7)',
+                bgcolor: active ? alpha(BRAND.teal, 0.15) : 'transparent',
+                borderLeft: '3px solid',
+                borderColor: active ? BRAND.teal : 'transparent',
+                transition: 'all 0.18s ease',
+                '&:hover': {
+                  bgcolor: active
+                    ? alpha(BRAND.teal, 0.2)
+                    : 'rgba(255,255,255,0.05)',
+                  color: '#fff',
+                },
+              }}
+            >
+              <item.icon sx={{ fontSize: 19, flexShrink: 0 }} />
+              <Typography
+                sx={{
+                  fontSize: '0.88rem',
+                  fontWeight: active ? 700 : 500,
+                  flex: 1,
+                  lineHeight: 1.2,
+                }}
+              >
+                {item.label}
+              </Typography>
+            </Box>
+          )
+        })}
+      </Stack>
+    </Box>
+  )
 
   const SidebarContent = (
     <Box
@@ -104,66 +176,8 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
 
       {/* Nav */}
       <Box sx={{ flex: 1, overflowY: 'auto', py: 2 }}>
-        <Typography
-          sx={{
-            fontSize: '0.62rem',
-            fontWeight: 700,
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.35)',
-            px: 3,
-            mb: 1,
-          }}
-        >
-          Management
-        </Typography>
-
-        <Stack spacing={0.25}>
-          {NAV_ITEMS.map((item) => {
-            const active = location.pathname === item.to
-            return (
-              <Box
-                key={item.label}
-                component={NavLink}
-                to={item.to}
-                onClick={() => setMobileOpen(false)}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                  mx: 1.5,
-                  px: 1.75,
-                  py: 1.15,
-                  borderRadius: 1.5,
-                  textDecoration: 'none',
-                  color: active ? '#fff' : 'rgba(255,255,255,0.7)',
-                  bgcolor: active ? alpha(BRAND.teal, 0.15) : 'transparent',
-                  borderLeft: '3px solid',
-                  borderColor: active ? BRAND.teal : 'transparent',
-                  transition: 'all 0.18s ease',
-                  '&:hover': {
-                    bgcolor: active
-                      ? alpha(BRAND.teal, 0.2)
-                      : 'rgba(255,255,255,0.05)',
-                    color: '#fff',
-                  },
-                }}
-              >
-                <item.icon sx={{ fontSize: 19, flexShrink: 0 }} />
-                <Typography
-                  sx={{
-                    fontSize: '0.88rem',
-                    fontWeight: active ? 700 : 500,
-                    flex: 1,
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {item.label}
-                </Typography>
-              </Box>
-            )
-          })}
-        </Stack>
+        {renderNavGroup('Management', NAV_ITEMS)}
+        {renderNavGroup('CRM', CRM_ITEMS)}
       </Box>
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
@@ -387,4 +401,4 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
       </Box>
     </Box>
   )
-}
+}  

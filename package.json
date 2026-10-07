@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "html5-qrcode": "^2.3.8",
+    "papaparse": "^5.7.0",
+    "read-excel-file": "^5.8.8"
+  }
+}

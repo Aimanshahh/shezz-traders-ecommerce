@@ -184,6 +184,8 @@ export async function deleteCategory(id) {
   return { ok: true }
 }
 
+
+
 // ══════════════════════════════════════════════════════
 //  ORDERS
 // ══════════════════════════════════════════════════════
@@ -230,4 +232,63 @@ export async function deleteOrder(id) {
 export async function getDashboardStats() {
   const data = await request('/orders/stats/dashboard')
   return data.stats
+}
+
+// ══════════════════════════════════════════════════════
+//  DEVICES / IMEI  (CRM)
+//  Paste this block at the END of services/api.js.
+//  It only adds new functions. Nothing existing changes.
+// ══════════════════════════════════════════════════════
+
+export async function getDevices(params = {}) {
+  const clean = Object.fromEntries(
+    Object.entries(params).filter(([, v]) => v !== '' && v != null)
+  )
+  const qs = new URLSearchParams(clean).toString()
+  return request(`/devices${qs ? `?${qs}` : ''}`) // { devices, total, page, pages }
+}
+
+export async function getDeviceStats() {
+  return request('/devices/stats') // { stats }
+}
+
+export async function getDevice(id) {
+  return request(`/devices/${id}`) // { device, history }
+}
+
+export async function addDevice(payload) {
+  const data = await request('/devices', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data.device
+}
+
+export async function scanDevice(imei) {
+  return request('/devices/scan', {
+    method: 'POST',
+    body: JSON.stringify({ imei }),
+  })
+}
+
+export async function previewDeviceImport(payload) {
+  return request('/devices/import/preview', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function importDevices(payload) {
+  return request('/devices/import', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function updateDeviceStatus(id, payload) {
+  const data = await request(`/devices/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  return data.device
 }
