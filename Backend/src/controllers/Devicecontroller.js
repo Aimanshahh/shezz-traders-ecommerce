@@ -2,7 +2,10 @@ import mongoose from 'mongoose'
 import Device, { DEVICE_STATUSES } from '../models/Device.js'
 import DeviceHistory from '../models/DeviceHistory.js'
 import Product from '../models/Product.js'
-import { validateImei } from '../utils/Imei.js'
+import Box from '../models/Box.js'
+import { validateImei } from '../utils/imei.js'
+import { checkBoxCode, normalizeBoxCode } from '../utils/boxCode.js'
+import { summarise, stateOf } from '../utils/boxSummary.js'
 
 const MAX_IMPORT = 5000
 // Statuses staff may set by hand. "sold" only happens through a completed sale.
@@ -15,23 +18,84 @@ const actor = (req) => ({
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-function analyse(values) {
+function analyse(values, boxCodes) {
   const valid = []
   const invalid = []
   const duplicatesInFile = []
   const seen = new Set()
+  const boxOf = new Map()
+  const rowOf = new Map()
   values.forEach((raw, i) => {
     const r = validateImei(raw)
     if (!r.valid) {
       invalid.push({ row: i + 1, value: String(raw ?? ''), reason: r.reason })
-    } else if (seen.has(r.imei)) {
+      return
+    }
+    let boxCode = ''
+    const rawBox = Array.isArray(boxCodes) ? String(boxCodes[i] ?? '').trim() : ''
+    if (rawBox) {
+      const c = checkBoxCode(rawBox)
+      if (!c.ok) {
+        invalid.push({ row: i + 1, value: `${r.imei} / ${rawBox}`, reason: c.message })
+        return
+      }
+      boxCode = c.code
+    }
+    if (seen.has(r.imei)) {
       duplicatesInFile.push(r.imei)
+      return
+    }
+    seen.add(r.imei)
+    valid.push(r.imei)
+    rowOf.set(r.imei, i + 1)
+    if (boxCode) boxOf.set(r.imei, boxCode)
+  })
+  return { valid, invalid, duplicatesInFile, boxOf, rowOf }
+}
+
+// Devices cannot go straight into a carton. Moves those rows to `invalid`.
+async function planBoxes(valid, invalid, boxOf, rowOf) {
+  const codes = [...new Set(boxOf.values())]
+  const found = codes.length
+    ? await Box.find({ code: { $in: codes } }).select('_id code type').lean()
+    : []
+  const foundMap = new Map(found.map((b) => [b.code, b]))
+  const cartonCodes = new Set(found.filter((b) => b.type === 'carton').map((b) => b.code))
+  const kept = []
+  valid.forEach((imei) => {
+    const code = boxOf.get(imei)
+    if (code && cartonCodes.has(code)) {
+      invalid.push({
+        row: rowOf.get(imei),
+        value: `${imei} / ${code}`,
+        reason: 'That code is a carton. Devices go into boxes',
+      })
     } else {
-      seen.add(r.imei)
-      valid.push(r.imei)
+      kept.push(imei)
     }
   })
-  return { valid, invalid, duplicatesInFile }
+  return { kept, foundMap }
+}
+
+async function createMissingBoxes(codes, productId, adminId, map) {
+  if (!codes.length) return
+  try {
+    await Box.insertMany(
+      codes.map((code) => ({
+        code,
+        type: 'box',
+        product: productId,
+        expectedCount: 10,
+        createdBy: adminId,
+      })),
+      { ordered: false }
+    )
+  } catch (err) {
+    const onlyDup = err.code === 11000 || err.writeErrors?.every((e) => e.code === 11000)
+    if (!onlyDup) throw err
+  }
+  const created = await Box.find({ code: { $in: codes } }).select('_id code type').lean()
+  created.forEach((b) => map.set(b.code, b))
 }
 
 async function checkProduct(productId) {
@@ -52,12 +116,30 @@ export async function listDevices(req, res, next) {
     if (req.query.product && mongoose.isValidObjectId(req.query.product)) {
       filter.product = req.query.product
     }
+    if (req.query.box && mongoose.isValidObjectId(req.query.box)) {
+      filter.box = req.query.box
+    }
     if (req.query.q) {
-      filter.imei = { $regex: escapeRegex(String(req.query.q).trim()) }
+      const q = String(req.query.q).trim()
+      const or = [{ imei: { $regex: escapeRegex(q) } }]
+      // Also match box and carton codes
+      const matched = await Box.find({ code: { $regex: escapeRegex(q.toUpperCase()) } })
+        .select('_id type')
+        .limit(200)
+        .lean()
+      const boxIds = matched.filter((b) => b.type === 'box').map((b) => b._id)
+      const cartonIds = matched.filter((b) => b.type === 'carton').map((b) => b._id)
+      if (cartonIds.length) {
+        const kids = await Box.find({ parent: { $in: cartonIds } }).select('_id').lean()
+        boxIds.push(...kids.map((k) => k._id))
+      }
+      if (boxIds.length) or.push({ box: { $in: boxIds } })
+      filter.$or = or
     }
     const [devices, total] = await Promise.all([
       Device.find(filter)
         .populate('product', 'name title')
+        .populate('box', 'code')
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -90,7 +172,10 @@ export async function getDevice(req, res, next) {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({ ok: false, message: 'Invalid device id' })
     }
-    const device = await Device.findById(req.params.id).populate('product', 'name title').lean()
+    const device = await Device.findById(req.params.id)
+      .populate('product', 'name title')
+      .populate({ path: 'box', select: 'code type parent', populate: { path: 'parent', select: 'code' } })
+      .lean()
     if (!device) return res.status(404).json({ ok: false, message: 'Device not found' })
     const history = await DeviceHistory.find({ device: device._id })
       .sort({ createdAt: -1 })
@@ -157,10 +242,14 @@ export async function previewImport(req, res, next) {
     const product = await checkProduct(req.body.productId)
     if (!product.ok) return res.status(400).json({ ok: false, message: 'Product not found' })
 
-    const { valid, invalid, duplicatesInFile } = analyse(imeis)
-    const existing = await Device.find({ imei: { $in: valid } }).select('imei').lean()
+    const { valid, invalid, duplicatesInFile, boxOf, rowOf } = analyse(imeis, req.body.boxes)
+    const { kept, foundMap } = await planBoxes(valid, invalid, boxOf, rowOf)
+    const existing = await Device.find({ imei: { $in: kept } }).select('imei').lean()
     const existingSet = new Set(existing.map((d) => d.imei))
-    const importable = valid.filter((i) => !existingSet.has(i))
+    const importable = kept.filter((i) => !existingSet.has(i))
+    const used = new Set(importable.map((i) => boxOf.get(i)).filter(Boolean))
+    const boxesToCreate = [...used].filter((c) => !foundMap.has(c)).length
+    invalid.sort((a, b) => a.row - b.row)
 
     res.json({
       ok: true,
@@ -170,6 +259,8 @@ export async function previewImport(req, res, next) {
         invalid: invalid.length,
         duplicatesInFile: duplicatesInFile.length,
         alreadyInInventory: existingSet.size,
+        boxesToCreate,
+        boxesExisting: used.size - boxesToCreate,
       },
       invalid,
       duplicatesInFile,
@@ -193,20 +284,32 @@ export async function commitImport(req, res, next) {
     const product = await checkProduct(req.body.productId)
     if (!product.ok) return res.status(400).json({ ok: false, message: 'Product not found' })
 
-    const { valid, invalid, duplicatesInFile } = analyse(imeis)
-    const existing = await Device.find({ imei: { $in: valid } }).select('imei').lean()
+    const { valid, invalid, duplicatesInFile, boxOf, rowOf } = analyse(imeis, req.body.boxes)
+    const { kept, foundMap } = await planBoxes(valid, invalid, boxOf, rowOf)
+    const existing = await Device.find({ imei: { $in: kept } }).select('imei').lean()
     const existingSet = new Set(existing.map((d) => d.imei))
-    const toInsert = valid.filter((i) => !existingSet.has(i))
+    const toInsert = kept.filter((i) => !existingSet.has(i))
+
+    // Boxes: reuse existing ones, create the rest
+    const boxMap = new Map(foundMap)
+    const usedCodes = [...new Set(toInsert.map((i) => boxOf.get(i)).filter(Boolean))]
+    const newCodes = usedCodes.filter((c) => !boxMap.has(c))
+    await createMissingBoxes(newCodes, product.id, req.admin?._id || null, boxMap)
 
     const batch = `IMP-${Date.now()}`
     if (toInsert.length > 0) {
-      const docs = toInsert.map((imei) => ({
-        imei,
-        product: product.id,
-        status: 'available',
-        importBatch: batch,
-        createdBy: req.admin?._id || null,
-      }))
+      const docs = toInsert.map((imei) => {
+        const code = boxOf.get(imei)
+        const box = code ? boxMap.get(code) : null
+        return {
+          imei,
+          product: product.id,
+          status: 'available',
+          box: box && box.type === 'box' ? box._id : null,
+          importBatch: batch,
+          createdBy: req.admin?._id || null,
+        }
+      })
       try {
         await Device.insertMany(docs, { ordered: false })
       } catch (err) {
@@ -219,14 +322,18 @@ export async function commitImport(req, res, next) {
     const inserted = await Device.find({ importBatch: batch }).select('_id imei').lean()
     if (inserted.length > 0) {
       await DeviceHistory.insertMany(
-        inserted.map((d) => ({
-          device: d._id,
-          imei: d.imei,
-          action: 'imported',
-          toStatus: 'available',
-          note: `Bulk import ${batch}`,
-          ...actor(req),
-        }))
+        inserted.map((d) => {
+          const code = boxOf.get(d.imei)
+          return {
+            device: d._id,
+            imei: d.imei,
+            action: 'imported',
+            toStatus: 'available',
+            note: `Bulk import ${batch}${code ? ` · box ${code}` : ''}`,
+            meta: code ? { box: code } : null,
+            ...actor(req),
+          }
+        })
       )
     }
 
@@ -239,6 +346,7 @@ export async function commitImport(req, res, next) {
         invalid: invalid.length,
         duplicatesInFile: duplicatesInFile.length,
         alreadyInInventory: existingSet.size,
+        boxesCreated: newCodes.length,
       },
     })
   } catch (err) {
@@ -247,13 +355,44 @@ export async function commitImport(req, res, next) {
 }
 
 // Only looks up and validates. Never changes a device's status.
+// Also understands box and carton barcodes (anything that is not plain digits).
 export async function scanDevice(req, res, next) {
   try {
+    const rawScan = String(req.body.imei ?? '').trim()
+
+    if (rawScan && !/^\d+$/.test(rawScan)) {
+      const box = await Box.findOne({ code: normalizeBoxCode(rawScan) })
+        .select('_id code type')
+        .lean()
+      if (box) {
+        const map = await summarise([box])
+        const summary = map.get(String(box._id))
+        return res.json({
+          ok: true,
+          status: 'box',
+          canSell: false,
+          message: `${box.type === 'carton' ? 'Carton' : 'Box'} ${box.code}`,
+          box,
+          summary,
+          state: stateOf(summary),
+        })
+      }
+      return res.json({
+        ok: true,
+        status: 'invalid',
+        canSell: false,
+        message: 'Not an IMEI, and no box or carton has this code',
+      })
+    }
+
     const r = validateImei(req.body.imei)
     if (!r.valid) {
       return res.json({ ok: true, status: 'invalid', canSell: false, message: r.reason })
     }
-    const device = await Device.findOne({ imei: r.imei }).populate('product', 'name title').lean()
+    const device = await Device.findOne({ imei: r.imei })
+      .populate('product', 'name title')
+      .populate('box', 'code')
+      .lean()
     if (!device) {
       return res.json({
         ok: true,

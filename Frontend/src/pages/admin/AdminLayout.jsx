@@ -11,6 +11,7 @@ import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner'
+import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined'
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined'
 import SearchIcon from '@mui/icons-material/Search'
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined'
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
 
 const CRM_ITEMS = [
   { label: 'Devices / IMEI', to: '/admin/devices', icon: QrCodeScannerIcon, prefix: true },
+  { label: 'Boxes & cartons', to: '/admin/boxes', icon: ViewInArOutlinedIcon, prefix: true },
 ]
 
 const SIDEBAR_WIDTH = 260
@@ -401,4 +403,4 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
       </Box>
     </Box>
   )
-}  
+}

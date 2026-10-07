@@ -15,14 +15,21 @@ import { getProducts, previewDeviceImport, importDevices } from '../../services/
 // Pull the IMEI column out of spreadsheet rows. Uses the column headed "IMEI"
 // if there is one, otherwise the first column.
 function extractFromRows(rows) {
-  if (!rows.length) return { imeis: [], hasHeader: false }
-  const headerIdx = rows[0].findIndex((c) => /imei/i.test(String(c ?? '')))
-  const hasHeader = headerIdx >= 0
-  const col = hasHeader ? headerIdx : 0
+  if (!rows.length) return { imeis: [], boxes: [], hasHeader: false }
+  const header = rows[0].map((c) => String(c ?? ''))
+  const imeiIdx = header.findIndex((c) => /imei/i.test(c))
+  const boxIdx = header.findIndex((c) => /box/i.test(c))
+  const hasHeader = imeiIdx >= 0
+  const col = hasHeader ? imeiIdx : 0
+  const boxCol = hasHeader ? boxIdx : -1
   const body = hasHeader ? rows.slice(1) : rows
   const imeis = body.map((r) => String(r[col] ?? '').trim())
-  while (imeis.length && imeis[imeis.length - 1] === '') imeis.pop()
-  return { imeis, hasHeader }
+  const boxes = body.map((r) => (boxCol >= 0 ? String(r[boxCol] ?? '').trim() : ''))
+  while (imeis.length && imeis[imeis.length - 1] === '' && boxes[boxes.length - 1] === '') {
+    imeis.pop()
+    boxes.pop()
+  }
+  return { imeis, boxes, hasHeader }
 }
 
 export default function AdminDeviceImport() {
@@ -32,6 +39,7 @@ export default function AdminDeviceImport() {
   const [pasted, setPasted] = useState('')
   const [fileName, setFileName] = useState('')
   const [imeis, setImeis] = useState([])
+  const [boxes, setBoxes] = useState([])
   const [rowOffset, setRowOffset] = useState(0)
   const [error, setError] = useState('')
   const [checking, setChecking] = useState(false)
@@ -69,12 +77,14 @@ export default function AdminDeviceImport() {
       } else {
         throw new Error('Please use a .xlsx or .csv file (save older .xls files as .xlsx).')
       }
-      const { imeis: list, hasHeader } = extractFromRows(rows)
+      const { imeis: list, boxes: boxList, hasHeader } = extractFromRows(rows)
       if (!list.length) throw new Error('No IMEIs found in the file.')
       setImeis(list)
+      setBoxes(boxList)
       setRowOffset(hasHeader ? 1 : 0)
     } catch (err) {
       setImeis([])
+      setBoxes([])
       setFileName('')
       setError(err?.message || 'Could not read the file.')
     } finally {
@@ -87,7 +97,25 @@ export default function AdminDeviceImport() {
     resetResult()
     setFileName('')
     setRowOffset(0)
-    setImeis(text.split(/[\s,;]+/).filter(Boolean))
+    const list = []
+    const boxList = []
+    text.split(/\r?\n/).forEach((line) => {
+      const tokens = line.split(/[\s,;]+/).filter(Boolean)
+      if (!tokens.length) return
+      if (tokens.length > 1 && /^\d+$/.test(tokens[1])) {
+        // several IMEIs on one line
+        tokens.forEach((t) => {
+          list.push(t)
+          boxList.push('')
+        })
+      } else {
+        // IMEI, optionally followed by a box code
+        list.push(tokens[0])
+        boxList.push(tokens[1] || '')
+      }
+    })
+    setImeis(list)
+    setBoxes(boxList)
   }
 
   const handleCheck = async () => {
@@ -96,7 +124,11 @@ export default function AdminDeviceImport() {
     setError('')
     setChecking(true)
     try {
-      const data = await previewDeviceImport({ imeis, productId })
+      const data = await previewDeviceImport({
+        imeis,
+        boxes: boxes.some(Boolean) ? boxes : undefined,
+        productId,
+      })
       setPreview(data)
     } catch (err) {
       setError(err?.message || 'Could not check the list.')
@@ -108,10 +140,15 @@ export default function AdminDeviceImport() {
   const handleImport = async () => {
     setImporting(true)
     try {
-      const data = await importDevices({ imeis, productId })
+      const data = await importDevices({
+        imeis,
+        boxes: boxes.some(Boolean) ? boxes : undefined,
+        productId,
+      })
       setDone(data.summary)
       setPreview(null)
       setImeis([])
+      setBoxes([])
       setPasted('')
       setFileName('')
     } catch (err) {
@@ -175,7 +212,7 @@ export default function AdminDeviceImport() {
             <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mb: 3 }}>
               {done.processed} processed · {done.invalid} invalid · {done.duplicatesInFile} duplicate
               in file · {done.alreadyInInventory} already in inventory. All new devices are
-              Available.
+              Available.{done.boxesCreated ? ` ${done.boxesCreated} new boxes were created.` : ''}
             </Typography>
             <Stack direction="row" spacing={1.5} justifyContent="center">
               <Button
@@ -247,12 +284,12 @@ export default function AdminDeviceImport() {
                   <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', mt: 1 }}>
                     {fileName
                       ? `${fileName} · ${imeis.length} rows read`
-                      : 'Use a column headed IMEI, or put the IMEIs in the first column.'}
+                      : 'Use a column headed IMEI (and optionally one headed Box), or put the IMEIs in the first column.'}
                   </Typography>
                 </Box>
 
                 <TextField
-                  label="Or paste IMEIs (one per line)"
+                  label="Or paste IMEIs (one per line, optionally followed by a box code)"
                   value={pasted}
                   onChange={(e) => handlePaste(e.target.value)}
                   multiline
@@ -312,6 +349,12 @@ export default function AdminDeviceImport() {
                   <Tile label="Duplicate in file" value={s.duplicatesInFile} color="#B45309" />
                   <Tile label="Already in inventory" value={s.alreadyInInventory} color="#B45309" />
                 </Box>
+
+                {(s.boxesToCreate > 0 || s.boxesExisting > 0) && (
+                  <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 2 }}>
+                    Boxes: {s.boxesToCreate} new will be created, {s.boxesExisting} already exist.
+                  </Typography>
+                )}
 
                 {preview.invalid.length > 0 && (
                   <Problem title="Invalid rows">

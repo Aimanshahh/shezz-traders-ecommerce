@@ -292,3 +292,60 @@ export async function updateDeviceStatus(id, payload) {
   })
   return data.device
 }
+
+// ══════════════════════════════════════════════════════
+//  BOXES / CARTONS  (CRM)
+//  below the devices block. Only adds new functions.
+// ══════════════════════════════════════════════════════
+
+export async function getBoxes(params = {}) {
+  const clean = Object.fromEntries(
+    Object.entries(params).filter(([, v]) => v !== '' && v != null)
+  )
+  const qs = new URLSearchParams(clean).toString()
+  return request(`/boxes${qs ? `?${qs}` : ''}`) // { boxes, total, page, pages }
+}
+
+export async function getBox(id) {
+  return request(`/boxes/${id}`) // { box, devices, children }
+}
+
+export async function createBox(payload) {
+  const data = await request('/boxes', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data.box
+}
+
+export async function updateBox(id, payload) {
+  const data = await request(`/boxes/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  return data.box
+}
+
+export async function deleteBox(id) {
+  await request(`/boxes/${id}`, { method: 'DELETE' })
+  return { ok: true }
+}
+
+export async function addDevicesToBox(id, payload) {
+  return request(`/boxes/${id}/devices`, {
+    method: 'POST',
+    body: JSON.stringify(payload), // { imeis: [...], productId? }
+  }) // { results, total, expectedCount, overCapacity }
+}
+
+export async function removeDeviceFromBox(id, deviceId) {
+  await request(`/boxes/${id}/devices/${deviceId}`, { method: 'DELETE' })
+  return { ok: true }
+}
+
+export async function addBoxesToCarton(id, codes) {
+  return request(`/boxes/${id}/boxes`, {
+    method: 'POST',
+    body: JSON.stringify({ codes }),
+  }) // { results, boxesInCarton }
+}

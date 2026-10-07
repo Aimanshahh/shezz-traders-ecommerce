@@ -29,7 +29,7 @@ import {
 const fmtDate = (d) =>
   new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
 
-const GRID = { xs: '1fr auto', md: '2fr 2fr 1fr 1fr 40px' }
+const GRID = { xs: '1fr auto', md: '2fr 2fr 1fr 1fr 1fr 40px' }
 
 export default function AdminDevices() {
   const navigate = useNavigate()
@@ -299,15 +299,14 @@ export default function AdminDevices() {
           <TextField
             select
             size="small"
-            value={statusFilter}
+            value={statusFilter || 'all'}
             onChange={(e) => {
-              setStatusFilter(e.target.value)
+              setStatusFilter(e.target.value === 'all' ? '' : e.target.value)
               setPage(1)
             }}
-            SelectProps={{ displayEmpty: true }}
             sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { borderRadius: 999 } }}
           >
-            <MenuItem value="">All statuses</MenuItem>
+            <MenuItem value="all">All statuses</MenuItem>
             {DEVICE_STATUS_LIST.map((s) => (
               <MenuItem key={s} value={s}>
                 {STATUS_META[s].label}
@@ -363,7 +362,7 @@ export default function AdminDevices() {
                   borderColor: 'divider',
                 }}
               >
-                {['IMEI', 'Product', 'Status', 'Added', ''].map((h) => (
+                {['IMEI', 'Product', 'Box', 'Status', 'Added', ''].map((h) => (
                   <Typography
                     key={h || 'x'}
                     sx={{
@@ -409,7 +408,8 @@ export default function AdminDevices() {
                         display: { xs: 'block', md: 'none' },
                       }}
                     >
-                      {d.product?.name || '—'} · {fmtDate(d.createdAt)}
+                      {d.product?.name || '—'}
+                      {d.box?.code ? ` · Box ${d.box.code}` : ''} · {fmtDate(d.createdAt)}
                     </Typography>
                   </Box>
                   <Typography
@@ -420,6 +420,16 @@ export default function AdminDevices() {
                     }}
                   >
                     {d.product?.name || '—'}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontSize: '0.84rem',
+                      fontFamily: 'monospace',
+                      color: 'text.secondary',
+                      display: { xs: 'none', md: 'block' },
+                    }}
+                  >
+                    {d.box?.code || '—'}
                   </Typography>
                   <Box>
                     <DeviceStatusChip status={d.status} />
@@ -594,7 +604,32 @@ export default function AdminDevices() {
                   {scanResult.device.product.name}
                 </Typography>
               )}
+              {scanResult.device?.box?.code && (
+                <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1.5 }}>
+                  In box {scanResult.device.box.code}
+                </Typography>
+              )}
+              {scanResult.summary && (
+                <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1.5 }}>
+                  {scanResult.box?.type === 'carton'
+                    ? `${scanResult.summary.childBoxes} boxes · `
+                    : ''}
+                  {scanResult.summary.total} devices · {scanResult.summary.available} available
+                  {scanResult.summary.sold ? ` · ${scanResult.summary.sold} sold` : ''}
+                </Typography>
+              )}
               <Stack direction="row" spacing={1}>
+                {scanResult.box && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="info"
+                    onClick={() => navigate(`/admin/boxes/${scanResult.box._id}`)}
+                    sx={{ textTransform: 'none', borderRadius: 999 }}
+                  >
+                    Open {scanResult.box.type === 'carton' ? 'carton' : 'box'}
+                  </Button>
+                )}
                 {scanResult.device && (
                   <Button
                     size="small"

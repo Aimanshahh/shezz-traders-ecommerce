@@ -10,6 +10,8 @@ import uploadRoutes from './src/routes/upload.js'
 import orderRoutes from './src/routes/orders.js'
 import emailTestRoutes from './src/routes/emailTest.js'
 import deviceRoutes from './src/routes/devices.js'
+import boxRoutes from './src/routes/boxes.js'
+
 
 dotenv.config()
 
@@ -64,7 +66,8 @@ app.use('/api/categories', categoryRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/test-email', emailTestRoutes)
-app.use('/api/devices', deviceRoutes)                // with the other routes
+app.use('/api/devices', deviceRoutes)    
+app.use('/api/boxes', boxRoutes)            // with the other routes
 
 
 // ─── 404

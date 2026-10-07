@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Navigate, Link as RouterLink, useParams } from 'react-router-dom'
 import {
   Box, Typography, Stack, Button, TextField, MenuItem, Alert, CircularProgress,
-  Snackbar,
+  Snackbar, Link,
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AdminLayout from './AdminLayout.jsx'
@@ -16,6 +16,8 @@ const ACTION_LABELS = {
   imported: 'Imported',
   added: 'Added manually',
   status_changed: 'Status changed',
+  box_assigned: 'Added to box',
+  box_removed: 'Taken out of box',
 }
 
 const fmtDateTime = (d) =>
@@ -118,6 +120,19 @@ export default function AdminDeviceDetail() {
               <Typography sx={{ fontSize: '0.88rem', color: 'text.secondary' }}>
                 {device.product?.name || 'No product'} · added {fmtDateTime(device.createdAt)}
               </Typography>
+              {device.box && (
+                <Typography sx={{ fontSize: '0.88rem', color: 'text.secondary', mt: 0.5 }}>
+                  Box:{' '}
+                  <Link
+                    component={RouterLink}
+                    to={`/admin/boxes/${device.box._id}`}
+                    sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                  >
+                    {device.box.code}
+                  </Link>
+                  {device.box.parent?.code ? ` · Carton ${device.box.parent.code}` : ''}
+                </Typography>
+              )}
               {device.notes && (
                 <Typography sx={{ fontSize: '0.85rem', mt: 1.5 }}>{device.notes}</Typography>
               )}

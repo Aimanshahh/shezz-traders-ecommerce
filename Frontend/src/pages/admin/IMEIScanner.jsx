@@ -21,7 +21,13 @@ const FORMATS = [
  *  - Phone camera: toggle the camera, codes are read continuously.
  * It only reports the raw code through onScan(code). It never sells anything.
  */
-export default function IMEIScanner({ onScan, busy = false, autoFocus = true }) {
+export default function IMEIScanner({
+  onScan,
+  busy = false,
+  autoFocus = true,
+  placeholder = 'Scan or type IMEI, then press Enter',
+  buttonLabel = 'Check',
+}) {
   const [value, setValue] = useState('')
   const [cameraOn, setCameraOn] = useState(false)
   const [cameraError, setCameraError] = useState('')
@@ -90,7 +96,7 @@ export default function IMEIScanner({ onScan, busy = false, autoFocus = true }) 
           fullWidth
           size="small"
           autoFocus={autoFocus}
-          placeholder="Scan or type IMEI, then press Enter"
+          placeholder={placeholder}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
@@ -110,7 +116,7 @@ export default function IMEIScanner({ onScan, busy = false, autoFocus = true }) 
           startIcon={<QrCodeScannerIcon />}
           sx={{ borderRadius: 999, fontWeight: 700, px: 2.5, whiteSpace: 'nowrap' }}
         >
-          Check
+          {buttonLabel}
         </Button>
       </Stack>
 

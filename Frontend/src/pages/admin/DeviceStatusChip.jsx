@@ -9,6 +9,7 @@ export const STATUS_META = {
   faulty: { label: 'Faulty', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
   lost: { label: 'Lost', bg: 'rgba(100,116,139,0.14)', color: '#475569' },
   deactivated: { label: 'Deactivated', bg: 'rgba(100,116,139,0.14)', color: '#475569' },
+  box: { label: 'Box', bg: 'rgba(245,158,11,0.14)', color: '#B45309' },
   not_found: { label: 'Not registered', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
   invalid: { label: 'Invalid', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
 }
