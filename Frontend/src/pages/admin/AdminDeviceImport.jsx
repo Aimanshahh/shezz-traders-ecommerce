@@ -12,6 +12,8 @@ import AdminLayout from './AdminLayout.jsx'
 import { isAdminLoggedIn } from '../../lib/adminAuth.js'
 import { getProducts, previewDeviceImport, importDevices } from '../../services/api.js'
 
+const DEVICES_PER_BOX = 10
+
 // Pull the IMEI column out of spreadsheet rows. Uses the column headed "IMEI"
 // if there is one, otherwise the first column.
 function extractFromRows(rows) {
@@ -40,6 +42,7 @@ export default function AdminDeviceImport() {
   const [fileName, setFileName] = useState('')
   const [imeis, setImeis] = useState([])
   const [boxes, setBoxes] = useState([])
+  const [boxCodesText, setBoxCodesText] = useState('')
   const [rowOffset, setRowOffset] = useState(0)
   const [error, setError] = useState('')
   const [checking, setChecking] = useState(false)
@@ -66,6 +69,7 @@ export default function AdminDeviceImport() {
     if (!file) return
     resetResult()
     setPasted('')
+    setBoxCodesText('')
     setFileName(file.name)
     try {
       const lower = file.name.toLowerCase()
@@ -96,6 +100,7 @@ export default function AdminDeviceImport() {
     setPasted(text)
     resetResult()
     setFileName('')
+    setBoxCodesText('')
     setRowOffset(0)
     const list = []
     const boxList = []
@@ -118,15 +123,43 @@ export default function AdminDeviceImport() {
     setBoxes(boxList)
   }
 
+  const enteredBoxCodes = boxCodesText
+    .split(/[\r\n,;]+/)
+    .map((code) => code.trim())
+    .filter(Boolean)
+  const groupSize = DEVICES_PER_BOX
+  const requiredBoxCount = groupSize > 0 ? Math.ceil(imeis.length / groupSize) : 0
+  const hasSheetBoxes = boxes.some(Boolean)
+  const duplicateBoxCodes = new Set(enteredBoxCodes.map((code) => code.toUpperCase())).size !== enteredBoxCodes.length
+  const boxMappingError = boxCodesText.trim() && (
+    !Number.isInteger(groupSize) || groupSize < 1
+      ? 'Devices per box must be a positive whole number.'
+      : duplicateBoxCodes
+        ? 'Each physical box needs a unique box code.'
+        : enteredBoxCodes.length !== requiredBoxCount
+          ? `This list needs exactly ${requiredBoxCount} box codes for ${imeis.length} devices.`
+          : ''
+  )
+  const mappedBoxes = boxCodesText.trim() && !boxMappingError
+    ? imeis.map((_, index) => enteredBoxCodes[Math.floor(index / groupSize)])
+    : boxes
+  const mappedGroups = boxCodesText.trim() && !boxMappingError
+    ? enteredBoxCodes.map((code, index) => ({
+        code,
+        count: Math.min(groupSize, imeis.length - index * groupSize),
+      }))
+    : []
+
   const handleCheck = async () => {
     if (!productId) return setError('Choose the product these devices belong to.')
     if (!imeis.length) return setError('Upload a file or paste some IMEIs first.')
+    if (boxMappingError) return setError(boxMappingError)
     setError('')
     setChecking(true)
     try {
       const data = await previewDeviceImport({
         imeis,
-        boxes: boxes.some(Boolean) ? boxes : undefined,
+        boxes: mappedBoxes.some(Boolean) ? mappedBoxes : undefined,
         productId,
       })
       setPreview(data)
@@ -138,11 +171,12 @@ export default function AdminDeviceImport() {
   }
 
   const handleImport = async () => {
+    if (boxMappingError) return setError(boxMappingError)
     setImporting(true)
     try {
       const data = await importDevices({
         imeis,
-        boxes: boxes.some(Boolean) ? boxes : undefined,
+        boxes: mappedBoxes.some(Boolean) ? mappedBoxes : undefined,
         productId,
       })
       setDone(data.summary)
@@ -297,6 +331,41 @@ export default function AdminDeviceImport() {
                   fullWidth
                   inputProps={{ style: { fontFamily: 'monospace' } }}
                 />
+
+                {imeis.length > 0 && (
+                  <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', mb: 0.5 }}>Assign ordered IMEIs to boxes</Typography>
+                    <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', mb: 1.5 }}>
+                      Only use this when the IMEI rows are already grouped in the same order as the physical boxes. Enter each real box barcode, in order. The first code is assigned to the first group of devices.
+                    </Typography>
+                    {hasSheetBoxes ? (
+                      <Alert severity="success">
+                        Using box codes from the spreadsheet for {boxes.filter(Boolean).length} IMEIs. These existing mappings take priority.
+                      </Alert>
+                    ) : (
+                      <>
+                        <TextField
+                          label={`Box codes in IMEI order (${requiredBoxCount} needed)`}
+                          value={boxCodesText}
+                          onChange={(event) => { setBoxCodesText(event.target.value); resetResult() }}
+                          multiline
+                          minRows={3}
+                          fullWidth
+                          placeholder={'BOX-001\nBOX-002\nBOX-003'}
+                          helperText="One actual box code per line. Each code is assigned to the next 10 IMEI rows. Commas also work."
+                          inputProps={{ style: { fontFamily: 'monospace' } }}
+                          sx={{ bgcolor: 'background.paper' }}
+                        />
+                        {boxMappingError && boxCodesText.trim() && <Alert severity="error" sx={{ mt: 1.5 }}>{boxMappingError}</Alert>}
+                        {mappedGroups.length > 0 && !boxMappingError && (
+                          <Alert severity="warning" sx={{ mt: 1.5 }}>
+                            Preview: {mappedGroups.map((group) => `${group.code} · ${group.count} IMEIs`).join('  |  ')}. Verify the original list order matches the physical carton before continuing.
+                          </Alert>
+                        )}
+                      </>
+                    )}
+                  </Box>
+                )}
 
                 {error && (
                   <Alert severity="error" sx={{ borderRadius: 2 }}>

@@ -11,7 +11,7 @@ import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import AdminLayout from './AdminLayout.jsx'
 import { isAdminLoggedIn, getAdminUser } from '../../lib/adminAuth.js'
-import { getDashboardStats } from '../../services/api.js'
+import { getAdminOverview, getDashboardStats } from '../../services/api.js'
 import { BRAND } from '../../theme/theme.js'
 
 const STATUS_COLORS = {
@@ -31,10 +31,7 @@ export default function AdminDashboard() {
     recentOrders: [],
   })
   const [loading, setLoading] = useState(true)
-
-  if (!isAdminLoggedIn()) {
-    return <Navigate to="/admin" replace />
-  }
+  const [overview, setOverview] = useState(null)
 
   const admin = getAdminUser()
 
@@ -62,6 +59,18 @@ export default function AdminDashboard() {
       alive = false
     }
   }, [])
+
+  useEffect(() => {
+    let alive = true
+    getAdminOverview()
+      .then((data) => { if (alive) setOverview(data) })
+      .catch((err) => console.error('Failed to load admin alerts:', err))
+    return () => { alive = false }
+  }, [])
+
+  if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
+
+  const deviceCount = Object.values(overview?.deviceCounts || {}).reduce((sum, count) => sum + count, 0)
 
   const STATS = [
     {
@@ -106,6 +115,34 @@ export default function AdminDashboard() {
           : 'Waiting for first order',
       icon: CategoryOutlinedIcon,
       color: BRAND.red,
+    },
+    {
+      label: 'CRM devices',
+      value: deviceCount.toLocaleString(),
+      hint: 'Tracked by IMEI',
+      icon: Inventory2OutlinedIcon,
+      color: '#2563EB',
+    },
+    {
+      label: 'Open return cases',
+      value: String(overview?.openCaseCount || 0),
+      hint: 'Awaiting a decision',
+      icon: ReceiptLongOutlinedIcon,
+      color: '#B45309',
+    },
+    {
+      label: 'Warranties ending soon',
+      value: String(overview?.expiringWarrantyCount || 0),
+      hint: 'Within 30 days',
+      icon: CategoryOutlinedIcon,
+      color: '#0F766E',
+    },
+    {
+      label: 'Low-stock products',
+      value: String(overview?.lowStockCount || 0),
+      hint: 'Five or fewer in storefront stock',
+      icon: Inventory2OutlinedIcon,
+      color: BRAND.orange,
     },
   ]
 
@@ -213,6 +250,31 @@ export default function AdminDashboard() {
             ))}
           </Grid>
         )}
+
+        <Box sx={{ mb: { xs: 3, md: 4 }, p: { xs: 2, md: 2.5 }, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+            <Box>
+              <Typography sx={{ fontWeight: 700, fontSize: '1rem' }}>Needs attention</Typography>
+              <Typography sx={{ color: 'text.secondary', fontSize: '0.76rem' }}>Open cases, expiring warranties, and product stock alerts</Typography>
+            </Box>
+            <Button component={RouterLink} to="/admin/reports" size="small" endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />} sx={{ textTransform: 'none' }}>Reports</Button>
+          </Stack>
+          {overview?.alerts?.length ? (
+            <Stack spacing={0.75}>
+              {overview.alerts.slice(0, 8).map((alert) => (
+                <Box key={`${alert.type}-${alert.id}`} component={RouterLink} to={alert.to} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, px: 1.5, py: 1, borderLeft: '3px solid', borderColor: alert.severity === 'error' ? 'error.main' : alert.severity === 'warning' ? 'warning.main' : 'info.main', bgcolor: 'action.hover', textDecoration: 'none', color: 'inherit', '&:hover': { bgcolor: 'action.selected' } }}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: '0.84rem', fontWeight: 700 }}>{alert.title}</Typography>
+                    <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary', overflow: 'hidden', textOverflow: 'ellipsis' }}>{alert.detail}</Typography>
+                  </Box>
+                  <ArrowForwardIcon sx={{ color: 'text.secondary', fontSize: 18, flexShrink: 0 }} />
+                </Box>
+              ))}
+            </Stack>
+          ) : (
+            <Typography sx={{ color: 'text.secondary', fontSize: '0.84rem', py: 1 }}>No active operational alerts.</Typography>
+          )}
+        </Box>
 
         {/* Main row */}
         <Grid container spacing={{ xs: 3, md: 3.5 }}>

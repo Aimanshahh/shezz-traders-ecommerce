@@ -3,9 +3,15 @@ import Device, { DEVICE_STATUSES } from '../models/Device.js'
 import DeviceHistory from '../models/DeviceHistory.js'
 import Product from '../models/Product.js'
 import Box from '../models/Box.js'
-import { validateImei } from '../utils/imei.js'
+import { validateImei } from '../utils/Imei.js'
 import { checkBoxCode, normalizeBoxCode } from '../utils/boxCode.js'
 import { summarise, stateOf } from '../utils/boxSummary.js'
+import { saleInfoFor } from '../utils/saleInfo.js'
+import { chainFor } from '../utils/Chain.js'
+import SaleItem from '../models/SaleItem.js'
+import Warranty from '../models/Warranty.js'
+import Transfer from '../models/Transfer.js'
+import ReturnCase from '../models/ReturnCase.js'
 
 const MAX_IMPORT = 5000
 // Statuses staff may set by hand. "sold" only happens through a completed sale.
@@ -140,12 +146,18 @@ export async function listDevices(req, res, next) {
       Device.find(filter)
         .populate('product', 'name title')
         .populate('box', 'code')
+        .populate('holder', 'name')
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
       Device.countDocuments(filter),
     ])
+    const soldIds = devices.filter((d) => d.status === 'sold').map((d) => d._id)
+    const info = await saleInfoFor(soldIds)
+    devices.forEach((d) => {
+      d.sale = info.get(String(d._id)) || null
+    })
     res.json({ ok: true, devices, total, page, pages: Math.ceil(total / limit) })
   } catch (err) {
     next(err)
@@ -174,6 +186,7 @@ export async function getDevice(req, res, next) {
     }
     const device = await Device.findById(req.params.id)
       .populate('product', 'name title')
+      .populate('holder', 'name phone')
       .populate({ path: 'box', select: 'code type parent', populate: { path: 'parent', select: 'code' } })
       .lean()
     if (!device) return res.status(404).json({ ok: false, message: 'Device not found' })
@@ -181,7 +194,18 @@ export async function getDevice(req, res, next) {
       .sort({ createdAt: -1 })
       .limit(200)
       .lean()
-    res.json({ ok: true, device, history })
+    const info = await saleInfoFor([device._id])
+    const chain = await chainFor(device._id)
+    const openCase = await ReturnCase.findOne({ device: device._id, status: 'open' }).select('caseNumber').lean()
+    let holder = device.holder || null
+    if (!holder && chain.length) {
+      const last = chain[chain.length - 1]
+      holder =
+        last.type === 'transfer'
+          ? { _id: last.toId, name: last.toName, phone: last.toPhone }
+          : { _id: last.customerId, name: last.customerName }
+    }
+    res.json({ ok: true, device, history, sale: info.get(String(device._id)) || null, chain, holder, openCase })
   } catch (err) {
     next(err)
   }
@@ -392,6 +416,7 @@ export async function scanDevice(req, res, next) {
     const device = await Device.findOne({ imei: r.imei })
       .populate('product', 'name title')
       .populate('box', 'code')
+      .populate('holder', 'name')
       .lean()
     if (!device) {
       return res.json({
@@ -412,12 +437,14 @@ export async function scanDevice(req, res, next) {
       lost: 'Device is marked lost',
       deactivated: 'Device is deactivated',
     }
+    const info = await saleInfoFor([device._id])
     res.json({
       ok: true,
       status: device.status,
       canSell: device.status === 'available',
       message: messages[device.status] || device.status,
       device,
+      sale: device.status === 'available' ? null : info.get(String(device._id)) || null,
     })
   } catch (err) {
     next(err)
@@ -461,6 +488,37 @@ export async function updateStatus(req, res, next) {
       ...actor(req),
     })
     res.json({ ok: true, device })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// DELETE /api/devices/:id
+// Removes a device and its history. Only allowed for devices that have never been sold,
+// so no invoice, warranty or ledger entry is ever left pointing at nothing.
+export async function deleteDevice(req, res, next) {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ ok: false, message: 'Invalid device id' })
+    }
+    const device = await Device.findById(req.params.id)
+    if (!device) return res.status(404).json({ ok: false, message: 'Device not found' })
+    const [onSale, transfers] = await Promise.all([
+      SaleItem.exists({ device: device._id }),
+      Transfer.exists({ device: device._id }),
+    ])
+    if (device.status === 'sold' || onSale || transfers) {
+      return res.status(400).json({
+        ok: false,
+        message: 'This device has sales records. Delete the invoice it belongs to first',
+      })
+    }
+    await Promise.all([
+      DeviceHistory.deleteMany({ device: device._id }),
+      Warranty.deleteMany({ device: device._id }),
+    ])
+    await device.deleteOne()
+    res.json({ ok: true })
   } catch (err) {
     next(err)
   }

@@ -9,8 +9,15 @@ import authRoutes from './src/routes/auth.js'
 import uploadRoutes from './src/routes/upload.js'
 import orderRoutes from './src/routes/orders.js'
 import emailTestRoutes from './src/routes/emailTest.js'
-import deviceRoutes from './src/routes/devices.js'
+import deviceRoutes from './src/routes/Devices.js'
 import boxRoutes from './src/routes/boxes.js'
+import salesRoutes from './src/routes/sales.js'
+import customerRoutes from './src/routes/customers.js'
+import crmSettingsRoutes from './src/routes/crmSettings.js'
+import paymentRoutes from './src/routes/payments.js'
+import transferRoutes from './src/routes/transfers.js'
+import returnRoutes from './src/routes/returns.js'
+import reportRoutes from './src/routes/reports.js'
 
 
 dotenv.config()
@@ -68,7 +75,13 @@ app.use('/api/orders', orderRoutes)
 app.use('/api/test-email', emailTestRoutes)
 app.use('/api/devices', deviceRoutes)    
 app.use('/api/boxes', boxRoutes)            // with the other routes
-
+app.use('/api/sales', salesRoutes)
+app.use('/api/customers', customerRoutes)
+app.use('/api/crm-settings', crmSettingsRoutes)
+app.use('/api/payments', paymentRoutes)
+app.use('/api/transfers', transferRoutes)
+app.use('/api/returns', returnRoutes)
+app.use('/api/reports', reportRoutes)
 
 // ─── 404
 app.use((req, res) => {

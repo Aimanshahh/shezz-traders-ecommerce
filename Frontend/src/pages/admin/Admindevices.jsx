@@ -18,6 +18,7 @@ import DeviceStatusChip, {
   STATUS_META,
 } from '../admin/DeviceStatusChip.jsx'
 import { isAdminLoggedIn } from '../../lib/adminAuth.js'
+import { WARRANTY_LABELS } from '../../components/admin/format.js'
 import {
   getDevices,
   getDeviceStats,
@@ -29,7 +30,7 @@ import {
 const fmtDate = (d) =>
   new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
 
-const GRID = { xs: '1fr auto', md: '2fr 2fr 1fr 1fr 1fr 40px' }
+const GRID = { xs: '1fr auto', md: '2fr 2fr 1fr 1fr 2fr 1fr 40px' }
 
 export default function AdminDevices() {
   const navigate = useNavigate()
@@ -362,7 +363,7 @@ export default function AdminDevices() {
                   borderColor: 'divider',
                 }}
               >
-                {['IMEI', 'Product', 'Box', 'Status', 'Added', ''].map((h) => (
+                {['IMEI', 'Product', 'Box', 'Status', 'Sold to', 'Added', ''].map((h) => (
                   <Typography
                     key={h || 'x'}
                     sx={{
@@ -433,6 +434,28 @@ export default function AdminDevices() {
                   </Typography>
                   <Box>
                     <DeviceStatusChip status={d.status} />
+                  </Box>
+                  <Box sx={{ display: { xs: 'none', md: 'block' }, minWidth: 0 }}>
+                    {d.sale ? (
+                      <>
+                        <Typography
+                          sx={{
+                            fontSize: '0.82rem',
+                            fontWeight: 600,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {d.sale.customerName}
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>
+                          {d.sale.invoiceNumber} · {fmtDate(d.sale.saleDate)}
+                        </Typography>
+                      </>
+                    ) : (
+                      <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary' }}>—</Typography>
+                    )}
                   </Box>
                   <Typography
                     sx={{
@@ -602,6 +625,15 @@ export default function AdminDevices() {
               {scanResult.device?.product?.name && (
                 <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1.5 }}>
                   {scanResult.device.product.name}
+                </Typography>
+              )}
+              {scanResult.sale && (
+                <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1.5 }}>
+                  {scanResult.sale.invoiceNumber} · {scanResult.sale.customerName} ·{' '}
+                  {fmtDate(scanResult.sale.saleDate)}
+                  {scanResult.sale.warranty
+                    ? ` · Warranty ${WARRANTY_LABELS[scanResult.sale.warranty.state] || scanResult.sale.warranty.state}`
+                    : ''}
                 </Typography>
               )}
               {scanResult.device?.box?.code && (

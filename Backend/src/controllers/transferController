@@ -1,0 +1,262 @@
+import mongoose from 'mongoose'
+import Customer from '../models/Customer.js'
+import Device from '../models/Device.js'
+import DeviceHistory from '../models/DeviceHistory.js'
+import Transfer from '../models/Transfer.js'
+import Box from '../models/Box.js'
+import Product from '../models/Product.js'
+import { validateImei } from '../utils/Imei.js'
+import { normalizeBoxCode } from '../utils/boxCode.js'
+import { normalizePhone, isValidPhone } from '../utils/phone.js'
+import { saleInfoFor } from '../utils/saleInfo.js'
+
+const MAX_ITEMS = 500
+
+class TransferError extends Error {
+  constructor(message, status = 409) {
+    super(message)
+    this.status = status
+  }
+}
+
+let collectionsReady = false
+async function ensureCollections() {
+  if (collectionsReady) return
+  await Promise.all([Transfer, Customer, DeviceHistory].map((m) => m.createCollection().catch(() => {})))
+  collectionsReady = true
+}
+
+// Who holds each device now: the recorded holder, or the buyer on its latest invoice.
+async function holdersOf(devices) {
+  const info = await saleInfoFor(devices.map((d) => d._id))
+  const out = new Map()
+  devices.forEach((d) => {
+    const i = info.get(String(d._id))
+    if (d.holder) {
+      out.set(String(d._id), { id: String(d.holder._id || d.holder), name: d.holder.name || i?.customerName || '' })
+    } else if (i) {
+      out.set(String(d._id), { id: String(i.customerId), name: i.customerName })
+    }
+  })
+  return { holders: out, info }
+}
+
+// POST /api/transfers/resolve  { code, fromCustomerId }
+// Turns a scanned IMEI / box / carton into devices and says which ones this dealer can pass on.
+export async function resolveForTransfer(req, res, next) {
+  try {
+    const raw = String(req.body.code ?? '').trim()
+    const fromId = String(req.body.fromCustomerId ?? '')
+    if (!raw) return res.status(400).json({ ok: false, message: 'Nothing scanned' })
+    if (!mongoose.isValidObjectId(fromId)) {
+      return res.status(400).json({ ok: false, message: 'Choose the dealer first' })
+    }
+
+    let kind
+    let label = raw
+    let devices = []
+    if (/^\d+$/.test(raw)) {
+      const r = validateImei(raw)
+      if (!r.valid) return res.json({ ok: true, kind: 'invalid', message: r.reason })
+      const d = await Device.findOne({ imei: r.imei })
+        .populate('product', 'name')
+        .populate('box', 'code')
+        .populate('holder', 'name')
+        .lean()
+      if (!d) return res.json({ ok: true, kind: 'not_found', message: 'Device not registered in inventory' })
+      kind = 'device'
+      label = d.imei
+      devices = [d]
+    } else {
+      const box = await Box.findOne({ code: normalizeBoxCode(raw) }).lean()
+      if (!box) return res.json({ ok: true, kind: 'not_found', message: 'No device, box or carton has this code' })
+      kind = box.type
+      label = box.code
+      let boxIds = [box._id]
+      if (box.type === 'carton') {
+        const kids = await Box.find({ parent: box._id }).select('_id').lean()
+        boxIds = kids.map((k) => k._id)
+      }
+      devices = await Device.find({ box: { $in: boxIds } })
+        .populate('product', 'name')
+        .populate('box', 'code')
+        .populate('holder', 'name')
+        .sort({ imei: 1 })
+        .lean()
+    }
+
+    const { holders } = await holdersOf(devices)
+    const items = devices.map((d) => {
+      const h = holders.get(String(d._id))
+      let eligible = false
+      let reason = ''
+      if (d.status !== 'sold') reason = `${d.status} (not sold yet)`
+      else if (!h) reason = 'no owner recorded'
+      else if (h.id !== fromId) reason = `held by ${h.name || 'someone else'}`
+      else eligible = true
+      return {
+        _id: d._id,
+        imei: d.imei,
+        status: d.status,
+        eligible,
+        reason,
+        product: d.product ? { name: d.product.name } : null,
+        box: d.box?.code || null,
+      }
+    })
+    res.json({
+      ok: true,
+      kind,
+      label,
+      items,
+      counts: { total: items.length, eligible: items.filter((i) => i.eligible).length },
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// POST /api/transfers
+// { fromCustomerId, toCustomerId? | to:{name,phone,city,address}, imeis:[...], date?, note? }
+export async function createTransfer(req, res, next) {
+  const session = await mongoose.startSession()
+  try {
+    await ensureCollections()
+    const body = req.body || {}
+    if (!mongoose.isValidObjectId(body.fromCustomerId)) {
+      return res.status(400).json({ ok: false, message: 'Choose the dealer who is handing the devices over' })
+    }
+    const rawImeis = Array.isArray(body.imeis) ? body.imeis : []
+    if (!rawImeis.length) return res.status(400).json({ ok: false, message: 'Add at least one device' })
+    if (rawImeis.length > MAX_ITEMS) {
+      return res.status(400).json({ ok: false, message: `Maximum ${MAX_ITEMS} devices at a time` })
+    }
+    const seen = new Set()
+    const imeis = []
+    for (const raw of rawImeis) {
+      const r = validateImei(raw)
+      if (!r.valid) return res.status(400).json({ ok: false, message: `${raw}: ${r.reason}` })
+      if (seen.has(r.imei)) return res.status(400).json({ ok: false, message: `${r.imei} is listed twice` })
+      seen.add(r.imei)
+      imeis.push(r.imei)
+    }
+
+    let toInput = null
+    if (!body.toCustomerId) {
+      const name = String(body.to?.name ?? '').trim()
+      const phone = normalizePhone(body.to?.phone)
+      if (!name) return res.status(400).json({ ok: false, message: 'Receiver name is required' })
+      if (!isValidPhone(phone)) return res.status(400).json({ ok: false, message: 'Enter a valid receiver phone number' })
+      toInput = {
+        name,
+        phone,
+        city: String(body.to?.city ?? '').trim(),
+        address: String(body.to?.address ?? '').trim(),
+      }
+    } else if (!mongoose.isValidObjectId(body.toCustomerId)) {
+      return res.status(400).json({ ok: false, message: 'Invalid receiver' })
+    }
+
+    let date = new Date()
+    if (body.date) {
+      date = new Date(body.date)
+      if (Number.isNaN(date.getTime())) return res.status(400).json({ ok: false, message: 'Invalid date' })
+    }
+    const actorName = req.admin?.name || req.admin?.username || req.admin?.email || ''
+    let receiverId = null
+
+    await session.withTransaction(async () => {
+      const from = await Customer.findById(body.fromCustomerId).session(session)
+      if (!from) throw new TransferError('Dealer not found', 404)
+
+      const devices = await Device.find({ imei: { $in: imeis } }).session(session).lean()
+      const byImei = new Map(devices.map((d) => [d.imei, d]))
+      const { holders, info } = await holdersOf(devices)
+
+      const problems = []
+      imeis.forEach((imei) => {
+        const d = byImei.get(imei)
+        if (!d) return problems.push(`${imei} (not in inventory)`)
+        if (d.status !== 'sold') return problems.push(`${imei} (${d.status}, not sold yet)`)
+        const h = holders.get(String(d._id))
+        if (!h || h.id !== String(from._id)) problems.push(`${imei} (held by ${h?.name || 'someone else'})`)
+      })
+      if (problems.length) {
+        const shown = problems.slice(0, 5).join(', ')
+        const more = problems.length > 5 ? ` and ${problems.length - 5} more` : ''
+        throw new TransferError(`${from.name} does not hold these devices: ${shown}${more}`)
+      }
+
+      let to
+      if (body.toCustomerId) {
+        to = await Customer.findById(body.toCustomerId).session(session)
+        if (!to) throw new TransferError('Receiver not found', 404)
+      } else {
+        to = await Customer.findOne({ phone: toInput.phone }).session(session)
+        if (!to) {
+          ;[to] = await Customer.create([{ ...toInput, createdBy: req.admin?._id || null }], { session })
+        }
+      }
+      if (String(to._id) === String(from._id)) {
+        throw new TransferError('The receiver is the same as the dealer')
+      }
+      receiverId = to._id
+
+      const ids = devices.map((d) => d._id)
+      const moved = await Device.updateMany(
+        { _id: { $in: ids }, status: 'sold', $or: [{ holder: from._id }, { holder: null }] },
+        { $set: { holder: to._id } },
+        { session }
+      )
+      if (moved.modifiedCount !== ids.length) {
+        throw new TransferError('Some devices changed hands while you were working. Scan them again.')
+      }
+
+      const productIds = [...new Set(devices.map((d) => d.product).filter(Boolean).map(String))]
+      const boxIds = [...new Set(devices.map((d) => d.box).filter(Boolean).map(String))]
+      const [products, boxes] = await Promise.all([
+        Product.find({ _id: { $in: productIds } }).select('name').lean(),
+        Box.find({ _id: { $in: boxIds } }).select('code').lean(),
+      ])
+      const productName = new Map(products.map((p) => [String(p._id), p.name]))
+      const boxCode = new Map(boxes.map((b) => [String(b._id), b.code]))
+
+      await Transfer.insertMany(
+        devices.map((d) => ({
+          device: d._id,
+          imei: d.imei,
+          from: from._id,
+          to: to._id,
+          sale: info.get(String(d._id))?.saleId || null,
+          productName: d.product ? productName.get(String(d.product)) || '' : '',
+          boxCode: d.box ? boxCode.get(String(d.box)) || '' : '',
+          date,
+          note: String(body.note ?? '').slice(0, 500),
+          createdBy: req.admin?._id || null,
+          createdByName: actorName,
+        })),
+        { session }
+      )
+
+      await DeviceHistory.insertMany(
+        devices.map((d) => ({
+          device: d._id,
+          imei: d.imei,
+          action: 'transferred',
+          note: `Passed from ${from.name} to ${to.name}`,
+          meta: { from: from.name, to: to.name },
+          performedBy: req.admin?._id || null,
+          performedByName: actorName,
+        })),
+        { session }
+      )
+    })
+
+    res.status(201).json({ ok: true, receiverId, count: imeis.length })
+  } catch (err) {
+    if (err instanceof TransferError) return res.status(err.status).json({ ok: false, message: err.message })
+    next(err)
+  } finally {
+    session.endSession()
+  }
+}

@@ -349,3 +349,176 @@ export async function addBoxesToCarton(id, codes) {
     body: JSON.stringify({ codes }),
   }) // { results, boxesInCarton }
 }
+// ══════════════════════════════════════════════════════
+//  SALES, CUSTOMERS, CRM SETTINGS  (CRM)
+//  Paste this block at the END of services/api.js,
+//  below the boxes block. Only adds new functions.
+// ══════════════════════════════════════════════════════
+
+export async function resolveCode(code) {
+  return request('/sales/resolve', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  }) // { kind, label, items, counts } or { kind: 'invalid' | 'not_found', message }
+}
+
+export async function createSale(payload) {
+  const data = await request('/sales', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data.sale // { _id, invoiceNumber }
+}
+
+export async function getSales(params = {}) {
+  const clean = Object.fromEntries(
+    Object.entries(params).filter(([, v]) => v !== '' && v != null)
+  )
+  const qs = new URLSearchParams(clean).toString()
+  return request(`/sales${qs ? `?${qs}` : ''}`) // { sales, total, page, pages, totals }
+}
+
+export async function getSale(id) {
+  return request(`/sales/${id}`) // { sale, items, settings }
+}
+
+export async function updateInvoiceEmail(id, email, action) {
+  return request(`/sales/${id}/email`, {
+    method: 'POST',
+    body: JSON.stringify({ email, action }),
+  })
+}
+
+export async function lookupCustomer(phone) {
+  return request(`/customers/lookup?phone=${encodeURIComponent(phone)}`) // { customer, stats }
+}
+
+export async function getCustomers(params = {}) {
+  const clean = Object.fromEntries(
+    Object.entries(params).filter(([, v]) => v !== '' && v != null)
+  )
+  const qs = new URLSearchParams(clean).toString()
+  return request(`/customers${qs ? `?${qs}` : ''}`)
+}
+
+export async function getCustomer(id) {
+  return request(`/customers/${id}`) // { customer, stats, sales, devices }
+}
+
+export async function updateCustomer(id, payload) {
+  const data = await request(`/customers/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  return data.customer
+}
+
+export async function getCrmSettings() {
+  const data = await request('/crm-settings')
+  return data.settings
+}
+
+export async function saveCrmSettings(payload) {
+  const data = await request('/crm-settings', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+  return data.settings
+}
+
+// ══════════════════════════════════════════════════════
+//  DELETE (test data cleanup)
+//  Paste this block at the END of services/api.js.
+// ══════════════════════════════════════════════════════
+
+export async function deleteDevice(id) {
+  return request(`/devices/${id}`, { method: 'DELETE' })
+}
+
+export async function deleteSale(id) {
+  return request(`/sales/${id}`, { method: 'DELETE' })
+}
+// ══════════════════════════════════════════════════════
+//  LEDGER, PAYMENTS, HANDOVERS  (CRM)
+//  Paste this block at the END of services/api.js.
+// ══════════════════════════════════════════════════════
+
+export async function getLedger(customerId, params = {}) {
+  const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+  const qs = new URLSearchParams(clean).toString()
+  return request(`/customers/${customerId}/ledger${qs ? `?${qs}` : ''}`)
+}
+
+export async function recordPayment(customerId, payload) {
+  const data = await request(`/customers/${customerId}/payments`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data.payment
+}
+
+export async function voidPayment(paymentId, reason = '') {
+  return request(`/payments/${paymentId}/void`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export async function resolveTransfer(code, fromCustomerId) {
+  return request('/transfers/resolve', {
+    method: 'POST',
+    body: JSON.stringify({ code, fromCustomerId }),
+  }) // { kind, label, items:[{imei,eligible,reason,product,box}], counts } | { kind:'invalid'|'not_found', message }
+}
+
+export async function createTransfer(payload) {
+  return request('/transfers', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }) // { receiverId, count }
+}
+
+export async function deleteCustomer(id) {
+  return request(`/customers/${id}`, { method: 'DELETE' })
+}
+
+export async function lookupReturnDevice(imei) {
+  const qs = new URLSearchParams({ imei }).toString()
+  return request(`/returns/lookup?${qs}`)
+}
+
+export async function getReturnCases(params = {}) {
+  const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+  const qs = new URLSearchParams(clean).toString()
+  return request(`/returns${qs ? `?${qs}` : ''}`)
+}
+
+export async function getReturnCase(id) {
+  const data = await request(`/returns/${id}`)
+  return { ...data.returnCase, refundableLimit: data.refundableLimit }
+}
+
+export async function openReturnCase(payload) {
+  const data = await request('/returns', { method: 'POST', body: JSON.stringify(payload) })
+  return data.returnCase
+}
+
+export async function resolveReturnCase(id, payload) {
+  const data = await request(`/returns/${id}/resolve`, { method: 'PATCH', body: JSON.stringify(payload) })
+  return data.returnCase
+}
+
+export async function cancelReturnCase(id) {
+  return request(`/returns/${id}/cancel`, { method: 'POST' })
+}
+
+export async function getAdminOverview() {
+  const data = await request('/reports/overview')
+  return data.overview
+}
+
+export async function getAdminReport(params = {}) {
+  const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+  const qs = new URLSearchParams(clean).toString()
+  return request(`/reports/summary${qs ? `?${qs}` : ''}`)
+}

@@ -9,6 +9,7 @@ import {
   commitImport,
   scanDevice,
   updateStatus,
+  deleteDevice,
 } from '../controllers/Devicecontroller.js'
 
 const router = express.Router()
@@ -24,5 +25,6 @@ router.get('/', listDevices)
 router.post('/', addDevice)
 router.get('/:id', getDevice)
 router.patch('/:id/status', updateStatus)
+router.delete('/:id', deleteDevice)
 
 export default router

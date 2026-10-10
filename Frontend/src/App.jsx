@@ -21,11 +21,23 @@ import AdminCategories from './pages/admin/AdminCategories.jsx'
 import AdminOrders from './pages/admin/AdminOrders.jsx'
 
 // Device Management (CRM)
-import AdminDevices from './pages/admin/Admindevices.jsx'
+import AdminDevices from './pages/admin/AdminDevices.jsx'
 import AdminDeviceImport from './pages/admin/AdminDeviceImport.jsx'
 import AdminDeviceDetail from './pages/admin/Admindevicedetail.jsx'
 import AdminBoxes from './pages/admin/AdminBoxes.jsx'
 import AdminBoxDetail from './pages/admin/AdminBoxDetail.jsx'
+import AdminNewSale from './pages/admin/AdminNewSale.jsx'
+import AdminSales from './pages/admin/AdminSales.jsx'
+import AdminInvoice from './pages/admin/AdminInvoice.jsx'
+import AdminCustomers from './pages/admin/Admincustomers.jsx'
+import AdminCustomerDetail from './pages/admin/Admincustomerdetail.jsx'
+import AdminStatement from './pages/admin/Adminstatement.jsx'
+import AdminHandover from './pages/admin/Adminhandover.jsx'
+import AdminCrmSettings from './pages/admin/AdminCrmSettings.jsx'
+import AdminReturns from './pages/admin/AdminReturns.jsx'
+import AdminReturnNew from './pages/admin/AdminReturnNew.jsx'
+import AdminReturnDetail from './pages/admin/AdminReturnDetail.jsx'
+import AdminReports from './pages/admin/AdminReports.jsx'
 
 function PublicLayout({ children }) {
   return <Layout>{children}</Layout>
@@ -48,6 +60,18 @@ function AdminRoutes() {
       <Route path="/admin/devices/:id" element={<AdminDeviceDetail />} />
       <Route path="/admin/boxes" element={<AdminBoxes />} />
       <Route path="/admin/boxes/:id" element={<AdminBoxDetail />} />
+      <Route path="/admin/sales" element={<AdminSales />} />
+      <Route path="/admin/sales/new" element={<AdminNewSale />} />
+      <Route path="/admin/sales/:id" element={<AdminInvoice />} />
+      <Route path="/admin/customers" element={<AdminCustomers />} />
+      <Route path="/admin/customers/:id" element={<AdminCustomerDetail />} />
+      <Route path="/admin/customers/:id/statement" element={<AdminStatement />} />
+      <Route path="/admin/handover" element={<AdminHandover />} />
+      <Route path="/admin/crm-settings" element={<AdminCrmSettings />} />
+      <Route path="/admin/returns" element={<AdminReturns />} />
+      <Route path="/admin/returns/new" element={<AdminReturnNew />} />
+      <Route path="/admin/returns/:id" element={<AdminReturnDetail />} />
+      <Route path="/admin/reports" element={<AdminReports />} />
     </Routes>
   )
 }

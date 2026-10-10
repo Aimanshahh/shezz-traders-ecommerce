@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Navigate, Link as RouterLink, useParams } from 'react-router-dom'
+import { Navigate, Link as RouterLink, useParams, useNavigate } from 'react-router-dom'
 import {
   Box, Typography, Stack, Button, TextField, MenuItem, Alert, CircularProgress,
   Snackbar, Link,
@@ -8,7 +8,8 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AdminLayout from './AdminLayout.jsx'
 import DeviceStatusChip, { STATUS_META } from '../admin/DeviceStatusChip.jsx'
 import { isAdminLoggedIn } from '../../lib/adminAuth.js'
-import { getDevice, updateDeviceStatus } from '../../services/api.js'
+import { getDevice, updateDeviceStatus, deleteDevice } from '../../services/api.js'
+import { WARRANTY_LABELS } from '../../components/admin/format.js'
 
 const MANUAL_STATUSES = ['available', 'faulty', 'lost', 'deactivated']
 
@@ -18,6 +19,12 @@ const ACTION_LABELS = {
   status_changed: 'Status changed',
   box_assigned: 'Added to box',
   box_removed: 'Taken out of box',
+  sold: 'Sold',
+  warranty_created: 'Warranty created',
+  return_opened: 'Return case opened',
+  return_resolved: 'Return case resolved',
+  return_cancelled: 'Return case cancelled',
+  replacement_issued: 'Replacement issued',
 }
 
 const fmtDateTime = (d) =>
@@ -31,8 +38,13 @@ const fmtDateTime = (d) =>
 
 export default function AdminDeviceDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [device, setDevice] = useState(null)
   const [history, setHistory] = useState([])
+  const [sale, setSale] = useState(null)
+  const [chain, setChain] = useState([])
+  const [holder, setHolder] = useState(null)
+  const [openCase, setOpenCase] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [newStatus, setNewStatus] = useState('')
@@ -46,6 +58,10 @@ export default function AdminDeviceDetail() {
       const data = await getDevice(id)
       setDevice(data.device)
       setHistory(data.history)
+      setSale(data.sale)
+      setChain(data.chain || [])
+      setHolder(data.holder || null)
+      setOpenCase(data.openCase || null)
       setError('')
     } catch (err) {
       setError(err?.message || 'Could not load this device.')
@@ -55,8 +71,22 @@ export default function AdminDeviceDetail() {
   }, [id])
 
   useEffect(() => {
-    load()
-  }, [load])
+    let alive = true
+    getDevice(id)
+      .then((data) => {
+        if (!alive) return
+        setDevice(data.device)
+        setHistory(data.history)
+        setSale(data.sale)
+        setChain(data.chain || [])
+        setHolder(data.holder || null)
+        setOpenCase(data.openCase || null)
+        setError('')
+      })
+      .catch((err) => { if (alive) setError(err?.message || 'Could not load this device.') })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [id])
 
   if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
 
@@ -76,6 +106,16 @@ export default function AdminDeviceDetail() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete ${device.imei} permanently? This also removes its history. This cannot be undone.`)) return
+    try {
+      await deleteDevice(id)
+      navigate('/admin/devices')
+    } catch (err) {
+      setToast({ severity: 'error', text: err?.message || 'Could not delete this device.' })
+    }
+  }
+
   const options = MANUAL_STATUSES.filter((s) => s !== device?.status)
 
   return (
@@ -89,6 +129,15 @@ export default function AdminDeviceDetail() {
         >
           Back to devices
         </Button>
+        {device && device.status !== 'sold' && (
+          <Button
+            onClick={handleDelete}
+            color="error"
+            sx={{ textTransform: 'none', fontWeight: 700, mb: 2, float: 'right' }}
+          >
+            Delete device
+          </Button>
+        )}
 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -133,6 +182,35 @@ export default function AdminDeviceDetail() {
                   {device.box.parent?.code ? ` · Carton ${device.box.parent.code}` : ''}
                 </Typography>
               )}
+              {sale && (
+                <Typography sx={{ fontSize: '0.88rem', color: 'text.secondary', mt: 0.5 }}>
+                  Sold on{' '}
+                  <Link
+                    component={RouterLink}
+                    to={`/admin/sales/${sale.saleId}`}
+                    sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                  >
+                    {sale.invoiceNumber}
+                  </Link>
+                  {` · ${sale.customerName}${sale.customerPhone ? ` (${sale.customerPhone})` : ''} · ${fmtDateTime(
+                    sale.saleDate
+                  )}`}
+                  {sale.soldByName ? ` · by ${sale.soldByName}` : ''}
+                </Typography>
+              )}
+              {sale?.warranty && (
+                <Typography sx={{ fontSize: '0.88rem', color: 'text.secondary', mt: 0.5 }}>
+                  Warranty: {WARRANTY_LABELS[sale.warranty.state] || sale.warranty.state} · until{' '}
+                  {new Date(sale.warranty.endDate).toLocaleDateString(undefined, {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                  {sale.warranty.state === 'active' || sale.warranty.state === 'expiring_soon'
+                    ? ` (${sale.warranty.daysRemaining} days left)`
+                    : ''}
+                </Typography>
+              )}
               {device.notes && (
                 <Typography sx={{ fontSize: '0.85rem', mt: 1.5 }}>{device.notes}</Typography>
               )}
@@ -149,10 +227,20 @@ export default function AdminDeviceDetail() {
             >
               <Typography sx={{ fontWeight: 700, mb: 1.5 }}>Change status</Typography>
               {device.status === 'sold' ? (
-                <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
-                  A sold device can't be changed here. Returns and replacements are handled through
-                  warranty claims.
-                </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} spacing={1.5}>
+                  <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', flex: 1 }}>
+                    A sold device can't be changed by hand. Open a case to record a return or warranty claim.
+                  </Typography>
+                  {openCase ? (
+                    <Button component={RouterLink} to={`/admin/returns/${openCase._id}`} variant="outlined" color="info" sx={{ textTransform: 'none' }}>
+                      View {openCase.caseNumber}
+                    </Button>
+                  ) : (
+                    <Button component={RouterLink} to={`/admin/returns/new?imei=${encodeURIComponent(device.imei)}`} variant="contained" color="info" sx={{ textTransform: 'none', fontWeight: 700 }}>
+                      Open return case
+                    </Button>
+                  )}
+                </Stack>
               ) : (
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                   <TextField
@@ -188,6 +276,44 @@ export default function AdminDeviceDetail() {
                 </Stack>
               )}
             </Box>
+
+            {chain.length > 0 && (
+              <Box sx={{ p: 3, borderRadius: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+                <Typography sx={{ fontWeight: 700, mb: 0.5 }}>Ownership chain</Typography>
+                {holder && (
+                  <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', mb: 2 }}>
+                    Currently with{' '}
+                    <Link component={RouterLink} to={`/admin/customers/${holder.id}`} sx={{ fontWeight: 700 }}>
+                      {holder.name}
+                    </Link>
+                  </Typography>
+                )}
+                <Stack spacing={1.25}>
+                  {chain.map((e, i) => (
+                    <Typography key={i} sx={{ fontSize: '0.88rem' }}>
+                      <Box component="span" sx={{ color: 'text.secondary', mr: 1 }}>
+                        {new Date(e.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </Box>
+                      {e.type === 'sale' ? (
+                        <>
+                          Shezz Traders sold to{' '}
+                          <Link component={RouterLink} to={`/admin/customers/${e.customerId}`} sx={{ fontWeight: 700 }}>{e.customerName}</Link>
+                          {' · '}
+                          <Link component={RouterLink} to={`/admin/sales/${e.saleId}`} sx={{ fontFamily: 'monospace' }}>{e.invoiceNumber}</Link>
+                        </>
+                      ) : (
+                        <>
+                          <Link component={RouterLink} to={`/admin/customers/${e.fromId}`} sx={{ fontWeight: 700 }}>{e.fromName}</Link>
+                          {' passed to '}
+                          <Link component={RouterLink} to={`/admin/customers/${e.toId}`} sx={{ fontWeight: 700 }}>{e.toName}</Link>
+                          {e.note ? ` · ${e.note}` : ''}
+                        </>
+                      )}
+                    </Typography>
+                  ))}
+                </Stack>
+              </Box>
+            )}
 
             <Box
               sx={{

@@ -18,6 +18,10 @@ const deviceSchema = new mongoose.Schema(
     status: { type: String, enum: DEVICE_STATUSES, default: 'available', index: true },
     // The box this device came in. Stays set after a sale so the origin is never lost.
     box: { type: mongoose.Schema.Types.ObjectId, ref: 'Box', default: null, index: true },
+    // Who holds the device now. Set when it is sold and changed by every handover.
+    holder: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', default: null, index: true },
+    replaces: { type: mongoose.Schema.Types.ObjectId, ref: 'Device', default: null },
+    replacedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Device', default: null },
     importBatch: { type: String, default: null },
     notes: { type: String, default: '' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },

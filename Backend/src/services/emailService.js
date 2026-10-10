@@ -329,3 +329,105 @@ export async function sendOrderConfirmation(order) {
     return { ok: false, reason: err.message }
   }
 }
+
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+})[char])
+
+function crmInvoiceTemplate({ sale, items, settings }) {
+  const shopName = escapeHtml(settings.shopName || 'Shezz Traders')
+  const rows = items.map((item) => `
+    <tr>
+      <td style="padding:12px 10px;border-bottom:1px solid #d9e4e5;text-align:center">1</td>
+      <td style="padding:12px 10px;border-bottom:1px solid #d9e4e5">
+        <strong>${escapeHtml(item.productName || 'Device')}</strong><br>
+        <span style="font:12px monospace;color:#526b70">IMEI ${escapeHtml(item.imei)}</span>
+        ${item.boxCode ? `<br><span style="font-size:12px;color:#526b70">Box ${escapeHtml(item.boxCode)}</span>` : ''}
+      </td>
+      <td style="padding:12px 10px;border-bottom:1px solid #d9e4e5;text-align:right;white-space:nowrap">${pkr(item.unitPrice)}</td>
+    </tr>`).join('')
+  const paymentMethod = escapeHtml(PAYMENT_LABELS[sale.paymentMethod] || sale.paymentMethod)
+  const bankDetails = sale.paymentMethod === 'bank_transfer'
+    ? [settings.bankName, settings.bankAccountName, settings.bankAccountNumber].filter(Boolean).map(escapeHtml)
+    : []
+  const paid = Number(sale.amountPaid || 0) + Number(sale.paidLater || 0)
+  const returned = Number(sale.returnedAmount || 0)
+  const refunded = Number(sale.refundedAmount || 0)
+  const balance = Math.max(0, Number(sale.total || 0) - returned - paid + refunded)
+  const date = new Date(sale.saleDate).toLocaleDateString('en-GB', {
+    day: '2-digit', month: 'long', year: 'numeric',
+  })
+
+  return `<!doctype html>
+<html><body style="margin:0;background:#f2f7f7;color:#17333a;font:14px Arial,sans-serif;padding:24px">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:760px;margin:auto;background:#fff;border-collapse:collapse">
+    <tr><td colspan="2" style="padding:0;background:#073b43;color:#fff">
+      <div style="padding:20px 26px;background:#087f86;border-bottom:6px solid #20bac1">
+        <span style="font-size:24px;font-weight:800;letter-spacing:1px">${shopName}</span>
+        <span style="float:right;padding-top:5px;font-size:20px;font-weight:700">INVOICE</span>
+      </div>
+    </td></tr>
+    <tr><td style="padding:22px 26px 8px;vertical-align:top">
+      <strong style="color:#087f86">Date</strong><br>${escapeHtml(date)}
+      <p style="margin:18px 0 0"><strong style="color:#087f86">Issued to</strong><br>
+        ${escapeHtml(sale.customerSnapshot?.name)}<br>${escapeHtml(sale.customerSnapshot?.phone)}<br>
+        ${escapeHtml([sale.customerSnapshot?.address, sale.customerSnapshot?.city].filter(Boolean).join(', '))}
+      </p>
+    </td><td style="padding:22px 26px 8px;vertical-align:top;text-align:right">
+      <strong style="color:#087f86">Payment method</strong><br>${paymentMethod}
+      ${bankDetails.length ? `<p style="margin:12px 0 0">${bankDetails.join('<br>')}</p>` : ''}
+      <p style="margin:18px 0 0"><strong style="color:#087f86">Invoice number</strong><br>${escapeHtml(sale.invoiceNumber)}</p>
+    </td></tr>
+    <tr><td colspan="2" style="padding:18px 26px">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #9fb5b7;border-collapse:collapse">
+        <thead><tr style="background:#eaf2f2;color:#087f86;text-align:left">
+          <th style="padding:10px;text-align:center">QTY</th><th style="padding:10px">DESCRIPTION</th><th style="padding:10px;text-align:right">AMOUNT</th>
+        </tr></thead><tbody>${rows}</tbody>
+      </table>
+    </td></tr>
+    <tr><td style="padding:0 26px 22px;vertical-align:top">
+      <strong style="color:#087f86">Warranty</strong><br>${Number(sale.warrantyMonths || 0)} months from sale date<br>
+      <span style="color:#526b70">${escapeHtml(settings.warrantyNote)}</span>
+    </td><td style="padding:0 26px 22px;vertical-align:top">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="5">
+        <tr><td>Subtotal</td><td style="text-align:right">${pkr(sale.subtotal)}</td></tr>
+        ${sale.discount > 0 ? `<tr><td>Discount</td><td style="text-align:right">-${pkr(sale.discount)}</td></tr>` : ''}
+        <tr><td>Tax (not configured)</td><td style="text-align:right">${pkr(0)}</td></tr>
+        ${returned > 0 ? `<tr><td>Return credit</td><td style="text-align:right">-${pkr(returned)}</td></tr>` : ''}
+        <tr style="border-top:2px solid #087f86;font-size:17px;font-weight:700"><td style="padding-top:10px">Grand total</td><td style="padding-top:10px;text-align:right">${pkr(sale.total - returned)}</td></tr>
+        ${paid > 0 || refunded > 0 ? `<tr><td>Paid</td><td style="text-align:right">${pkr(paid - refunded)}</td></tr>` : ''}
+        ${balance > 0 ? `<tr><td>Balance due</td><td style="text-align:right">${pkr(balance)}</td></tr>` : ''}
+      </table>
+    </td></tr>
+    <tr><td colspan="2" style="padding:14px 26px;background:#eaf2f2;color:#526b70;font-size:12px">
+      ${escapeHtml(settings.invoiceFooter || 'Thank you for your business.')}
+      ${settings.phone ? `<br>${escapeHtml(settings.phone)}` : ''}
+      ${settings.email ? ` · ${escapeHtml(settings.email)}` : ''}
+    </td></tr>
+  </table>
+</body></html>`
+}
+
+export async function sendCrmInvoiceEmail({ sale, items, settings, recipient }) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    return { ok: false, reason: 'SMTP is not configured' }
+  }
+  try {
+    const info = await getTransporter().sendMail({
+      from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+      to: recipient,
+      replyTo: settings.email || undefined,
+      subject: `Invoice ${sale.invoiceNumber} from ${settings.shopName || 'Shezz Traders'}`,
+      html: crmInvoiceTemplate({ sale, items, settings }),
+      text: `Invoice ${sale.invoiceNumber} from ${settings.shopName || 'Shezz Traders'}. Total: ${pkr(sale.total)}.`,
+    })
+    return { ok: true, messageId: info.messageId }
+  } catch (err) {
+    console.error('Invoice email failed:', err.message)
+    return { ok: false, reason: err.message }
+  }
+}

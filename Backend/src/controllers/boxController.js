@@ -3,7 +3,7 @@ import Box, { BOX_TYPES } from '../models/Box.js'
 import Device from '../models/Device.js'
 import DeviceHistory from '../models/DeviceHistory.js'
 import Product from '../models/Product.js'
-import { validateImei } from '../utils/imei.js'
+import { validateImei } from '../utils/Imei.js'
 import { checkBoxCode, normalizeBoxCode } from '../utils/boxCode.js'
 import { summarise, stateOf } from '../utils/boxSummary.js'
 
