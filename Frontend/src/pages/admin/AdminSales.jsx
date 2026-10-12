@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Navigate, Link as RouterLink, useNavigate } from 'react-router-dom'
 import {
-  Box, Typography, Stack, Button, InputBase, TextField, Snackbar, Alert,
+  Box, Typography, Stack, Button, InputBase, TextField, MenuItem, Snackbar, Alert,
   CircularProgress, Chip, Card, CardContent, IconButton, Pagination, Tooltip,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -12,6 +12,7 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale'
 import DevicesIcon from '@mui/icons-material/Devices'
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
+import HourglassBottomIcon from '@mui/icons-material/HourglassBottom'
 import AdminLayout from './AdminLayout.jsx'
 import { money, fmtDate, labelOf, SALE_SOURCES } from '../../components/admin/format.js'
 import { isAdminLoggedIn } from '../../lib/adminAuth.js'
@@ -22,13 +23,15 @@ const GRID = { xs: '1fr auto', md: '1fr 1fr 2fr 1fr 1fr 1.2fr 40px' }
 const PAY_STYLE = {
   paid: { label: 'Paid', bg: 'rgba(16,185,129,0.12)', color: '#0F8A5F' },
   partial: { label: 'Partial', bg: 'rgba(245,158,11,0.14)', color: '#B45309' },
-  unpaid: { label: 'Unpaid', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
+  unpaid: { label: 'Pending payment', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
 }
 
 export default function AdminSales() {
   const navigate = useNavigate()
   const [sales, setSales] = useState([])
   const [totals, setTotals] = useState({ revenue: 0, devices: 0, count: 0 })
+  const [pending, setPending] = useState({ count: 0, outstanding: 0, overdue: 0 })
+  const [payment, setPayment] = useState('all')
   const [total, setTotal] = useState(0)
   const [pages, setPages] = useState(1)
   const [page, setPage] = useState(1)
@@ -50,9 +53,10 @@ export default function AdminSales() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getSales({ q: debouncedSearch, from, to, page, limit: 25 })
+      const data = await getSales({ q: debouncedSearch, from, to, payment: payment === 'all' ? '' : payment, page, limit: 25 })
       setSales(data.sales)
       setTotals(data.totals)
+      setPending(data.pending || { count: 0, outstanding: 0, overdue: 0 })
       setTotal(data.total)
       setPages(data.pages || 1)
     } catch (err) {
@@ -60,7 +64,7 @@ export default function AdminSales() {
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, from, to, page])
+  }, [debouncedSearch, from, to, payment, page])
 
   useEffect(() => {
     load()
@@ -68,12 +72,13 @@ export default function AdminSales() {
 
   if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
 
-  const hasFilters = debouncedSearch || from || to
+  const hasFilters = debouncedSearch || from || to || payment !== 'all'
 
   const clearFilters = () => {
     setSearch('')
     setFrom('')
     setTo('')
+    setPayment('all')
     setPage(1)
   }
 
@@ -81,6 +86,14 @@ export default function AdminSales() {
     { label: 'Sales', value: totals.count, icon: <PointOfSaleIcon />, color: '#0ea5e9' },
     { label: 'Devices sold', value: totals.devices, icon: <DevicesIcon />, color: '#8b5cf6' },
     { label: 'Revenue', value: money(totals.revenue), icon: <AttachMoneyIcon />, color: '#10b981' },
+    {
+      label: 'Pending payment',
+      value: money(pending.outstanding),
+      sub: pending.count ? `${pending.count} invoice${pending.count === 1 ? '' : 's'}${pending.overdue ? ` · ${pending.overdue} overdue` : ''}` : 'Nothing pending',
+      icon: <HourglassBottomIcon />,
+      color: '#f59e0b',
+      onClick: () => { setPayment('pending'); setPage(1) },
+    },
   ]
 
   return (
@@ -117,9 +130,9 @@ export default function AdminSales() {
         </Stack>
 
         {/* Summary Tiles */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
           {tiles.map((t) => (
-            <Card key={t.label} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+            <Card key={t.label} elevation={0} onClick={t.onClick} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, cursor: t.onClick ? 'pointer' : 'default' }}>
               <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, '&:last-child': { pb: 2 } }}>
                 <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: `${t.color}15`, color: t.color, display: 'flex' }}>
                   {t.icon}
@@ -131,6 +144,7 @@ export default function AdminSales() {
                   <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.8rem', lineHeight: 1.2 }}>
                     {t.value}
                   </Typography>
+                  {t.sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{t.sub}</Typography>}
                 </Box>
               </CardContent>
             </Card>
@@ -187,6 +201,24 @@ export default function AdminSales() {
                 onChange={(e) => { setTo(e.target.value); setPage(1) }}
                 sx={{ width: 140, '& input': { py: 1.1 } }}
               />
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block', ml: 0.5 }}>
+                Payment
+              </Typography>
+              <TextField
+                select
+                size="small"
+                value={payment}
+                onChange={(e) => { setPayment(e.target.value); setPage(1) }}
+                sx={{ width: 160, '& .MuiSelect-select': { py: 1.1 } }}
+              >
+                <MenuItem value="all">All</MenuItem>
+                <MenuItem value="pending">Pending (any)</MenuItem>
+                <MenuItem value="unpaid">Pending payment</MenuItem>
+                <MenuItem value="partial">Part paid</MenuItem>
+                <MenuItem value="paid">Paid</MenuItem>
+              </TextField>
             </Box>
             {hasFilters && (
               <Box sx={{ mt: 2.75 }}>
@@ -282,6 +314,11 @@ export default function AdminSales() {
                         {money(s.total)}
                       </Typography>
                       <Chip label={pay.label} size="small" sx={{ bgcolor: pay.bg, color: pay.color, fontWeight: 700, fontSize: '0.66rem', height: 20, borderRadius: 999 }} />
+                      {s.paymentStatus !== 'paid' && s.dueDate && (
+                        <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, whiteSpace: 'nowrap', color: new Date(s.dueDate) < new Date() ? '#C81E1E' : 'text.secondary' }}>
+                          {new Date(s.dueDate) < new Date() ? 'Overdue · ' : 'Due '}{fmtDate(s.dueDate)}
+                        </Typography>
+                      )}
                     </Stack>
                     <ChevronRightIcon className="chevron" sx={{ color: 'text.secondary', display: { xs: 'none', md: 'block' }, transition: 'transform 0.2s ease' }} />
                   </Box>

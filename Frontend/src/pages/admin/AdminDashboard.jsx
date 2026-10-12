@@ -9,6 +9,7 @@ import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined'
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import SpeedOutlinedIcon from '@mui/icons-material/SpeedOutlined'
 import AdminLayout from './AdminLayout.jsx'
 import { isAdminLoggedIn, getAdminUser } from '../../lib/adminAuth.js'
 import { getAdminOverview, getDashboardStats } from '../../services/api.js'
@@ -180,7 +181,7 @@ export default function AdminDashboard() {
             spacing={{ xs: 2, md: 2.5 }}
             sx={{ mb: { xs: 3, md: 4 } }}
           >
-            {STATS.map((s) => (
+            {STATS.slice(0, 4).map((s) => (
               <Grid key={s.label} size={{ xs: 12, sm: 6, lg: 3 }}>
                 <Box
                   sx={{
@@ -251,7 +252,31 @@ export default function AdminDashboard() {
           </Grid>
         )}
 
-        <Box sx={{ mb: { xs: 3, md: 4 }, p: { xs: 2, md: 2.5 }, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.2fr 0.8fr' }, gap: 2.5, mb: { xs: 3, md: 4 } }}>
+          <Box sx={{ p: { xs: 2, md: 2.5 }, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2.5 }}>
+              <Box>
+                <Typography sx={{ fontWeight: 800, fontSize: '1rem' }}>Inventory health</Typography>
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.76rem', mt: 0.3 }}>Live device status across the CRM</Typography>
+              </Box>
+              <SpeedOutlinedIcon sx={{ color: 'info.main', fontSize: 21 }} />
+            </Stack>
+            <InventoryBars counts={overview?.deviceCounts || {}} />
+          </Box>
+
+          <Box sx={{ p: { xs: 2, md: 2.5 }, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2.5 }}>
+              <Box>
+                <Typography sx={{ fontWeight: 800, fontSize: '1rem' }}>Recent order mix</Typography>
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.76rem', mt: 0.3 }}>Latest five orders by status</Typography>
+              </Box>
+              <ReceiptLongOutlinedIcon sx={{ color: BRAND.orange, fontSize: 21 }} />
+            </Stack>
+            <OrderMix orders={stats.recentOrders} />
+          </Box>
+        </Box>
+
+        <Box sx={{ mb: { xs: 3, md: 4 }, p: { xs: 2, md: 2.5 }, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
             <Box>
               <Typography sx={{ fontWeight: 700, fontSize: '1rem' }}>Needs attention</Typography>
@@ -401,6 +426,43 @@ export default function AdminDashboard() {
       </Box>
     </AdminLayout>
   )
+}
+
+const INVENTORY_STATUS = [
+  { key: 'available', label: 'Available', color: '#0F8A5F' },
+  { key: 'sold', label: 'Sold', color: '#087F86' },
+  { key: 'returned', label: 'Returned', color: '#C2410C' },
+  { key: 'faulty', label: 'Faulty', color: '#C81E1E' },
+  { key: 'lost', label: 'Lost', color: '#64748B' },
+]
+
+function InventoryBars({ counts }) {
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0)
+  if (!total) return <Typography sx={{ color: 'text.secondary', fontSize: '0.82rem', py: 2 }}>No device inventory yet.</Typography>
+  return <Stack spacing={1.35}>{INVENTORY_STATUS.map((item) => {
+    const value = counts[item.key] || 0
+    const percent = Math.round((value / total) * 100)
+    return <Box key={item.key}>
+      <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.55 }}>
+        <Typography sx={{ fontSize: '0.78rem', fontWeight: 600 }}>{item.label}</Typography>
+        <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary' }}>{value} · {percent}%</Typography>
+      </Stack>
+      <Box sx={{ height: 7, bgcolor: '#EDF2F2', borderRadius: 999, overflow: 'hidden' }}><Box sx={{ width: `${percent}%`, height: '100%', bgcolor: item.color, borderRadius: 999, transition: 'width 0.4s ease' }} /></Box>
+    </Box>
+  })}</Stack>
+}
+
+function OrderMix({ orders }) {
+  if (!orders.length) return <Typography sx={{ color: 'text.secondary', fontSize: '0.82rem', py: 2 }}>No recent orders yet.</Typography>
+  const counts = orders.reduce((map, order) => ({ ...map, [order.status]: (map[order.status] || 0) + 1 }), {})
+  return <Stack spacing={1.35}>{Object.entries(counts).map(([status, count]) => {
+    const tone = STATUS_COLORS[status] || { bg: '#EDF2F2', color: '#526B70' }
+    return <Stack key={status} direction="row" alignItems="center" spacing={1.25}>
+      <Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: tone.color, flexShrink: 0 }} />
+      <Typography sx={{ fontSize: '0.78rem', flex: 1 }}>{status}</Typography>
+      <Typography sx={{ fontSize: '0.78rem', fontWeight: 800 }}>{count}</Typography>
+    </Stack>
+  })}</Stack>
 }
 
 /* ── Order row ─────────────────────────────────────── */

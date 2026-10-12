@@ -124,8 +124,8 @@ export async function completeSale(req, res, next) {
 
     // ── validate input ─────────────────────────────────────
     const rawItems = Array.isArray(body.items) ? body.items : []
-    if (rawItems.length === 0) {
-      return res.status(400).json({ ok: false, message: 'Add at least one device to the sale' })
+    if (rawItems.length === 0 && (!Array.isArray(body.extras) || body.extras.length === 0)) {
+      return res.status(400).json({ ok: false, message: 'Add at least one device or extra product to the sale' })
     }
     if (rawItems.length > MAX_ITEMS) {
       return res.status(400).json({ ok: false, message: `Maximum ${MAX_ITEMS} devices per sale` })
@@ -148,6 +148,19 @@ export async function completeSale(req, res, next) {
       items.push({ imei: r.imei, unitPrice: round2(price) })
     }
 
+    const extras = []
+    for (const raw of Array.isArray(body.extras) ? body.extras : []) {
+      if (!mongoose.isValidObjectId(raw?.productId)) {
+        return res.status(400).json({ ok: false, message: 'Invalid extra product' })
+      }
+      const quantity = Number(raw.quantity)
+      const unitPrice = Number(raw.unitPrice)
+      if (!Number.isInteger(quantity) || quantity < 1 || !Number.isFinite(unitPrice) || unitPrice < 0) {
+        return res.status(400).json({ ok: false, message: 'Extra product quantity and price are invalid' })
+      }
+      extras.push({ productId: raw.productId, quantity, unitPrice: round2(unitPrice) })
+    }
+
     let customerInput = null
     if (!body.customerId) {
       const name = String(body.customer?.name ?? '').trim()
@@ -166,7 +179,27 @@ export async function completeSale(req, res, next) {
       return res.status(400).json({ ok: false, message: 'Invalid customer' })
     }
 
-    const subtotal = round2(items.reduce((sum, i) => sum + i.unitPrice, 0))
+    const extraProducts = extras.length
+      ? await Product.find({ _id: { $in: extras.map((extra) => extra.productId) } }).lean()
+      : []
+    const productById = new Map(extraProducts.map((product) => [String(product._id), product]))
+    if (productById.size !== new Set(extras.map((extra) => String(extra.productId))).size) {
+      return res.status(400).json({ ok: false, message: 'One or more extra products no longer exist' })
+    }
+    for (const extra of extras) {
+      const product = productById.get(String(extra.productId))
+      if (product.stock < extra.quantity) {
+        return res.status(400).json({ ok: false, message: `Not enough stock for extra product "${product.name}"` })
+      }
+    }
+    const extraLines = extras.map((extra) => ({
+      product: extra.productId,
+      name: productById.get(String(extra.productId)).name,
+      quantity: extra.quantity,
+      unitPrice: extra.unitPrice,
+      total: round2(extra.unitPrice * extra.quantity),
+    }))
+    const subtotal = round2(items.reduce((sum, i) => sum + i.unitPrice, 0) + extraLines.reduce((sum, extra) => sum + extra.total, 0))
     const discount = round2(Number(body.discount || 0))
     if (!Number.isFinite(discount) || discount < 0 || discount > subtotal) {
       return res.status(400).json({ ok: false, message: 'Discount must be between 0 and the subtotal' })
@@ -189,6 +222,14 @@ export async function completeSale(req, res, next) {
       }
     }
     const paymentStatus = amountPaid >= total ? 'paid' : amountPaid === 0 ? 'unpaid' : 'partial'
+
+    let dueDate = null
+    if (body.dueDate && paymentStatus !== 'paid') {
+      dueDate = new Date(`${String(body.dueDate).slice(0, 10)}T23:59:59`)
+      if (Number.isNaN(dueDate.getTime())) {
+        return res.status(400).json({ ok: false, message: 'Invalid payment due date' })
+      }
+    }
 
     let saleDate = new Date()
     if (body.saleDate) {
@@ -260,6 +301,15 @@ export async function completeSale(req, res, next) {
       // the buyer now holds these devices
       await Device.updateMany({ _id: { $in: ids } }, { $set: { holder: customer._id } }, { session })
 
+      for (const extra of extraLines) {
+        const result = await Product.updateOne(
+          { _id: extra.product, stock: { $gte: extra.quantity } },
+          { $inc: { stock: -extra.quantity } },
+          { session }
+        )
+        if (result.modifiedCount !== 1) throw new SaleError(`Extra product "${extra.name}" stock changed. Try again.`)
+      }
+
       // invoice number
       const counter = await Counter.findOneAndUpdate(
         { _id: 'invoice' },
@@ -281,11 +331,13 @@ export async function completeSale(req, res, next) {
             },
             source,
             itemCount: items.length,
+            extras: extraLines,
             subtotal,
             discount,
             total,
             amountPaid,
             paymentStatus,
+            dueDate,
             paymentMethod,
             saleDate,
             soldBy: req.admin?._id || null,
@@ -384,6 +436,9 @@ export async function listSales(req, res, next) {
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 25, 1), 100)
     const filter = {}
 
+    if (req.query.payment === 'pending') filter.paymentStatus = { $in: ['unpaid', 'partial'] }
+    else if (['paid', 'partial', 'unpaid'].includes(req.query.payment)) filter.paymentStatus = req.query.payment
+
     if (req.query.q) {
       const q = String(req.query.q).trim()
       const rx = { $regex: escapeRegex(q), $options: 'i' }
@@ -401,7 +456,7 @@ export async function listSales(req, res, next) {
       if (req.query.to) filter.saleDate.$lte = new Date(`${req.query.to}T23:59:59.999`)
     }
 
-    const [sales, total, agg] = await Promise.all([
+    const [sales, total, agg, pendingAgg] = await Promise.all([
       Sale.find(filter).sort({ saleDate: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       Sale.countDocuments(filter),
       Sale.aggregate([
@@ -415,8 +470,34 @@ export async function listSales(req, res, next) {
           },
         },
       ]),
+      Sale.aggregate([
+        { $match: { status: 'completed', paymentStatus: { $ne: 'paid' } } },
+        {
+          $group: {
+            _id: null,
+            count: { $sum: 1 },
+            outstanding: {
+              $sum: {
+                $subtract: [
+                  { $subtract: ['$total', { $ifNull: ['$returnedAmount', 0] }] },
+                  {
+                    $subtract: [
+                      { $add: ['$amountPaid', { $ifNull: ['$paidLater', 0] }] },
+                      { $ifNull: ['$refundedAmount', 0] },
+                    ],
+                  },
+                ],
+              },
+            },
+            overdue: {
+              $sum: { $cond: [{ $and: [{ $gt: ['$dueDate', null] }, { $lt: ['$dueDate', '$$NOW'] }] }, 1, 0] },
+            },
+          },
+        },
+      ]),
     ])
     const totals = agg[0] || { revenue: 0, devices: 0, count: 0 }
+    const pend = pendingAgg[0] || { count: 0, outstanding: 0, overdue: 0 }
     res.json({
       ok: true,
       sales,
@@ -424,6 +505,7 @@ export async function listSales(req, res, next) {
       page,
       pages: Math.ceil(total / limit),
       totals: { revenue: totals.revenue, devices: totals.devices, count: totals.count },
+      pending: { count: pend.count, outstanding: Math.max(Math.round(pend.outstanding * 100) / 100, 0), overdue: pend.overdue },
     })
   } catch (err) {
     next(err)
@@ -496,6 +578,9 @@ export async function deleteSale(req, res, next) {
         { $set: { status: 'available', holder: null } },
         { session }
       )
+      for (const extra of sale.extras || []) {
+        await Product.findByIdAndUpdate(extra.product, { $inc: { stock: extra.quantity } }, { session })
+      }
       if (items.length) {
         await DeviceHistory.insertMany(
           items.map((i) => ({

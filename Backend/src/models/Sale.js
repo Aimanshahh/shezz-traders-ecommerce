@@ -17,6 +17,13 @@ const saleSchema = new mongoose.Schema(
     },
     source: { type: String, enum: SALE_SOURCES, default: 'offline' },
     itemCount: { type: Number, default: 0 },
+    extras: [{
+      product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+      name: { type: String, required: true },
+      quantity: { type: Number, required: true, min: 1 },
+      unitPrice: { type: Number, required: true, min: 0 },
+      total: { type: Number, required: true, min: 0 },
+    }],
     subtotal: { type: Number, required: true, min: 0 },
     discount: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true, min: 0 },
@@ -25,6 +32,7 @@ const saleSchema = new mongoose.Schema(
     returnedAmount: { type: Number, default: 0, min: 0 },
     refundedAmount: { type: Number, default: 0, min: 0 },
     paymentStatus: { type: String, enum: PAYMENT_STATUSES, default: 'paid' },
+    dueDate: { type: Date, default: null, index: true }, // when a pending payment is expected
     paymentMethod: { type: String, enum: PAYMENT_METHODS, default: 'cash' },
     saleDate: { type: Date, default: Date.now, index: true },
     soldBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },

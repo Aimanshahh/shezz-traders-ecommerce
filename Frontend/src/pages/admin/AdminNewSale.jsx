@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import {
   Box, Typography, Stack, Button, TextField, MenuItem, Alert, CircularProgress,
-  IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Card, CardContent, Divider,
+  IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Card, CardContent, Divider, Checkbox, ToggleButton, ToggleButtonGroup,
 } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined'
@@ -15,7 +15,7 @@ import {
   money, fmtDate, PAYMENT_METHODS, SALE_SOURCES, WARRANTY_LABELS,
 } from '../../components/admin/format.js'
 import { isAdminLoggedIn, getAdminUser } from '../../lib/adminAuth.js'
-import { resolveCode, createSale, lookupCustomer } from '../../services/api.js'
+import { resolveCode, createSale, lookupCustomer, getProducts } from '../../services/api.js'
 
 const TONE_COLOR = { success: '#0F8A5F', info: '#475569', error: '#C81E1E' }
 
@@ -58,10 +58,16 @@ export default function AdminNewSale() {
   const linesRef = useRef([])
   const [feed, setFeed] = useState([])
   const [confirm, setConfirm] = useState(null)
+  const [boxPicker, setBoxPicker] = useState(null)
+  const [selectedBoxImeis, setSelectedBoxImeis] = useState([])
+  const [products, setProducts] = useState([])
+  const [extras, setExtras] = useState([])
 
   const [discount, setDiscount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [payMode, setPayMode] = useState('full') // full | part | later
   const [amountPaid, setAmountPaid] = useState('')
+  const [dueDate, setDueDate] = useState('')
   const [source, setSource] = useState('offline')
   const [notes, setNotes] = useState('')
 
@@ -72,12 +78,27 @@ export default function AdminNewSale() {
     linesRef.current = lines
   }, [lines])
 
+  useEffect(() => {
+    getProducts().then(setProducts).catch(() => {})
+  }, [])
+
   const subtotal = useMemo(
     () => lines.reduce((sum, l) => sum + (Number(l.unitPrice) || 0), 0),
     [lines]
   )
   const discountNum = Math.max(Number(discount) || 0, 0)
-  const total = Math.max(subtotal - discountNum, 0)
+  const extrasTotal = extras.reduce((sum, extra) => sum + (Number(extra.unitPrice) || 0) * (Number(extra.quantity) || 0), 0)
+  const saleSubtotal = subtotal + extrasTotal
+  const total = Math.max(saleSubtotal - discountNum, 0)
+  const paidNow = payMode === 'full' ? total : payMode === 'later' ? 0 : Math.max(Number(amountPaid) || 0, 0)
+  const pendingBalance = Math.max(total - paidNow, 0)
+  const partInvalid = payMode === 'part' && (!(Number(amountPaid) > 0) || Number(amountPaid) >= total)
+  const inDays = (n) => {
+    const d = new Date()
+    d.setDate(d.getDate() + n)
+    const pad = (x) => String(x).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  }
 
   const pushFeed = (entry) => setFeed((f) => [entry, ...f].slice(0, 8))
 
@@ -91,6 +112,16 @@ export default function AdminNewSale() {
       text: `Added ${items.length} device${items.length === 1 ? '' : 's'}${label ? ` from ${label}` : ''}`,
     })
   }
+
+  const addExtra = (productId) => {
+    const product = products.find((item) => String(item._id || item.id) === String(productId))
+    if (!product) return
+    setExtras((current) => current.some((extra) => extra.productId === String(productId))
+      ? current
+      : [...current, { productId: String(productId), name: product.name, quantity: 1, unitPrice: String(product.price || 0) }])
+  }
+
+  const updateExtra = (productId, field, value) => setExtras((current) => current.map((extra) => extra.productId === productId ? { ...extra, [field]: value } : extra))
 
   const handleScan = async (code) => {
     try {
@@ -115,6 +146,9 @@ export default function AdminNewSale() {
         pushFeed({ tone: 'info', text: `${r.label} has no devices` })
       } else if (fresh.length === 0) {
         pushFeed({ tone: 'info', text: `All devices from ${r.label} are already in this sale` })
+      } else if (r.kind !== 'device') {
+        setSelectedBoxImeis(addable.map((item) => item.imei))
+        setBoxPicker({ label: r.label, items: addable, blocked })
       } else if (blocked.length) {
         setConfirm({ label: r.label, addable, blocked })
       } else {
@@ -149,7 +183,7 @@ export default function AdminNewSale() {
   }
 
   const setPrice = (imei, value) =>
-    setLines((prev) => prev.map((l) => (l.imei === imei ? { ...l, unitPrice: value } : l)))
+    setLines((prev) => prev.map((l) => ({ ...l, unitPrice: value })))
 
   const removeLine = (imei) => setLines((prev) => prev.filter((l) => l.imei !== imei))
 
@@ -157,7 +191,8 @@ export default function AdminNewSale() {
     lines.length > 0 &&
     customer.phone.trim().length >= 7 &&
     (customerId || customer.name.trim()) &&
-    discountNum <= subtotal
+    discountNum <= saleSubtotal &&
+    !partInvalid
 
   const handleComplete = async () => {
     setError('')
@@ -167,9 +202,11 @@ export default function AdminNewSale() {
         customerId: customerId || undefined,
         customer: customerId ? undefined : customer,
         items: lines.map((l) => ({ imei: l.imei, unitPrice: Number(l.unitPrice) || 0 })),
+        extras: extras.map((extra) => ({ productId: extra.productId, quantity: Number(extra.quantity) || 1, unitPrice: Number(extra.unitPrice) || 0 })),
         discount: discountNum,
         paymentMethod,
-        amountPaid: amountPaid === '' ? undefined : Number(amountPaid),
+        amountPaid: payMode === 'full' ? undefined : payMode === 'later' ? 0 : Number(amountPaid),
+        dueDate: payMode === 'full' ? undefined : dueDate || undefined,
         source,
         notes,
       })
@@ -185,12 +222,18 @@ export default function AdminNewSale() {
 
   return (
     <AdminLayout title="New sale">
-      <Box sx={{ maxWidth: 1200, mx: 'auto', pb: 4 }}>
+      <Box sx={{ maxWidth: 1280, mx: 'auto', pb: 4 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1} sx={{ mb: 2.5 }}>
+          <Box>
+            <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: { xs: '1.55rem', md: '1.85rem' }, lineHeight: 1.1 }}>Create invoice</Typography>
+            <Typography sx={{ color: 'text.secondary', fontSize: '0.82rem', mt: 0.35 }}>Capture the customer, scan available devices, then complete payment details.</Typography>
+          </Box>
+        </Stack>
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', lg: '1.8fr 1fr' },
-            gap: 3,
+            gridTemplateColumns: { xs: '1fr', lg: '1.55fr 1fr' },
+            gap: { xs: 2.5, lg: 3 },
             alignItems: 'start',
           }}
         >
@@ -198,9 +241,9 @@ export default function AdminNewSale() {
           <Stack spacing={3}>
             
             {/* Customer Card */}
-            <Card elevation={0} sx={{ border: `1px solid ${BORDER_COLOR}`, borderRadius: 2 }}>
-              <CardContent sx={{ p: 3 }}>
-                <Typography sx={{ fontWeight: 700, fontSize: '1.1rem', mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Card elevation={0} sx={{ border: `1px solid ${BORDER_COLOR}`, borderRadius: 1.5 }}>
+              <CardContent sx={{ p: { xs: 2.25, md: 2.75 } }}>
+                <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', mb: 2.25, display: 'flex', alignItems: 'center', gap: 1 }}>
                   <PersonOutlinedIcon sx={{ color: 'text.secondary' }} /> Customer Details
                 </Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
@@ -254,15 +297,20 @@ export default function AdminNewSale() {
                     <Typography sx={{ fontSize: '0.85rem' }}>
                       {matched.name} · {matched.stats.purchases} {matched.stats.purchases === 1 ? 'purchase' : 'purchases'} · {money(matched.stats.spent)} spent
                     </Typography>
+                    {matched.stats.balance > 0 && (
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'warning.dark' }}>
+                        Already owes {money(matched.stats.balance)} from earlier invoices
+                      </Typography>
+                    )}
                   </Alert>
                 )}
               </CardContent>
             </Card>
 
             {/* Devices Card */}
-            <Card elevation={0} sx={{ border: `1px solid ${BORDER_COLOR}`, borderRadius: 2 }}>
-              <CardContent sx={{ p: 3 }}>
-                <Typography sx={{ fontWeight: 700, fontSize: '1.1rem', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Card elevation={0} sx={{ border: `1px solid ${BORDER_COLOR}`, borderRadius: 1.5 }}>
+              <CardContent sx={{ p: { xs: 2.25, md: 2.75 } }}>
+                <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', mb: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Inventory2OutlinedIcon sx={{ color: 'text.secondary' }} /> Add Devices
                 </Typography>
                 <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mb: 3 }}>
@@ -293,7 +341,7 @@ export default function AdminNewSale() {
                 )}
 
                 {/* Device List */}
-                <Box sx={{ mt: 4 }}>
+                <Box sx={{ mt: 3 }}>
                   {lines.length === 0 ? (
                     <Box sx={{ textAlign: 'center', py: 4, bgcolor: '#F8FAFC', borderRadius: 2, border: `2px dashed ${BORDER_COLOR}` }}>
                       <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
@@ -358,27 +406,48 @@ export default function AdminNewSale() {
                 </Box>
               </CardContent>
             </Card>
+
+            <Card elevation={0} sx={{ border: `1px solid ${BORDER_COLOR}`, borderRadius: 1.5 }}>
+              <CardContent sx={{ p: { xs: 2.25, md: 2.75 } }}>
+                <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', mb: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AddCircleOutlinedIcon sx={{ color: 'text.secondary' }} /> Other components
+                </Typography>
+                <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mb: 2 }}>Add cables, accessories or other stocked products to this invoice.</Typography>
+                <TextField select size="small" label="Add a product" value="" onChange={(event) => addExtra(event.target.value)} fullWidth sx={INPUT_SX}>
+                  <MenuItem value="" disabled>Select a product</MenuItem>
+                  {products.map((product) => <MenuItem key={product._id || product.id} value={product._id || product.id}>{product.name} · {money(product.price)}</MenuItem>)}
+                </TextField>
+                {extras.length > 0 && <Stack spacing={1} sx={{ mt: 2 }}>
+                  {extras.map((extra) => <Box key={extra.productId} sx={{ display: 'grid', gridTemplateColumns: '1fr 70px 105px 36px', gap: 1, alignItems: 'center', p: 1, bgcolor: '#F8FAFC', border: `1px solid ${BORDER_COLOR}`, borderRadius: 1 }}>
+                    <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, minWidth: 0 }}>{extra.name}</Typography>
+                    <TextField size="small" type="number" value={extra.quantity} onChange={(event) => updateExtra(extra.productId, 'quantity', event.target.value)} inputProps={{ min: 1, style: { textAlign: 'center' } }} sx={INPUT_SX} />
+                    <TextField size="small" type="number" value={extra.unitPrice} onChange={(event) => updateExtra(extra.productId, 'unitPrice', event.target.value)} inputProps={{ min: 0, style: { textAlign: 'right' } }} sx={INPUT_SX} />
+                    <IconButton size="small" onClick={() => setExtras((current) => current.filter((item) => item.productId !== extra.productId))} sx={{ color: 'error.main' }}><DeleteOutlineIcon fontSize="small" /></IconButton>
+                  </Box>)}
+                </Stack>}
+              </CardContent>
+            </Card>
           </Stack>
 
           {/* RIGHT COLUMN: Summary */}
           <Card 
             elevation={0} 
             sx={{ 
-              border: `1px solid ${BORDER_COLOR}`, borderRadius: 2,
+              border: `1px solid ${BORDER_COLOR}`, borderRadius: 1.5,
               position: { lg: 'sticky' }, top: { lg: 90 } 
             }}
           >
-            <CardContent sx={{ p: 3 }}>
-              <Typography sx={{ fontWeight: 700, fontSize: '1.1rem', mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CardContent sx={{ p: { xs: 2.25, md: 2.75 } }}>
+              <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', mb: 2.25, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ReceiptLongOutlinedIcon sx={{ color: 'text.secondary' }} /> Order Summary
               </Typography>
 
               {/* TOTALS SECTION - FIXED ALIGNMENT & OUTLINES */}
               <Stack spacing={2.5} sx={{ mb: 4 }}>
                 {/* Subtotal Row */}
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
-                  <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary', fontWeight: 500 }}>Subtotal</Typography>
-                  <Typography sx={{ fontSize: '0.95rem', fontWeight: 600, color: 'text.primary' }}>{money(subtotal)}</Typography>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ width: '100%' }}>
+                  <Typography sx={{ fontSize: '0.86rem', color: 'text.secondary', fontWeight: 600 }}>Subtotal</Typography>
+                  <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, color: 'text.primary', whiteSpace: 'nowrap' }}>{money(saleSubtotal)}</Typography>
                 </Stack>
                 
                 {/* Discount Row */}
@@ -391,8 +460,8 @@ export default function AdminNewSale() {
                       value={discount}
                       onChange={(e) => setDiscount(e.target.value)}
                       inputProps={{ min: 0, style: { textAlign: 'right', fontSize: '0.85rem' } }}
-                      error={discountNum > subtotal}
-                      helperText={discountNum > subtotal ? 'Too high' : ''}
+                      error={discountNum > saleSubtotal}
+                      helperText={discountNum > saleSubtotal ? 'Too high' : ''}
                       variant="outlined"
                       sx={INPUT_SX}
                       fullWidth
@@ -403,12 +472,24 @@ export default function AdminNewSale() {
                 <Divider sx={{ borderColor: BORDER_COLOR, my: 0.5 }} />
                 
                 {/* Total Row */}
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
-                  <Typography sx={{ fontSize: '1.1rem', fontWeight: 700, color: 'text.primary' }}>Total</Typography>
-                  <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, fontFamily: '"Barlow Condensed", sans-serif', color: 'text.primary' }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ width: '100%' }}>
+                  <Typography sx={{ fontSize: '1rem', fontWeight: 800, color: 'text.primary' }}>Total</Typography>
+                  <Typography sx={{ fontSize: '1.45rem', fontWeight: 800, fontFamily: '"Barlow Condensed", sans-serif', color: 'text.primary', whiteSpace: 'nowrap' }}>
                     {money(total)}
                   </Typography>
                 </Stack>
+                {payMode !== 'full' && (
+                  <>
+                    <Stack direction="row" justifyContent="space-between" sx={{ width: '100%' }}>
+                      <Typography sx={{ fontSize: '0.86rem', color: 'text.secondary', fontWeight: 600 }}>Received now</Typography>
+                      <Typography sx={{ fontSize: '0.95rem', fontWeight: 700 }}>{money(paidNow)}</Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between" sx={{ width: '100%' }}>
+                      <Typography sx={{ fontSize: '0.86rem', color: 'warning.dark', fontWeight: 700 }}>Payment pending</Typography>
+                      <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, color: 'warning.dark' }}>{money(pendingBalance)}</Typography>
+                    </Stack>
+                  </>
+                )}
               </Stack>
 
               <Divider sx={{ my: 3, borderColor: BORDER_COLOR }} />
@@ -417,23 +498,58 @@ export default function AdminNewSale() {
               <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', mb: 2 }}>
                 Payment & Source
               </Typography>
-              <Stack spacing={2.5} sx={{ mb: 3 }}>
+              <Stack spacing={1.75} sx={{ mb: 2.5 }}>
                 <TextField select label="Payment Method" size="small" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} variant="outlined" sx={INPUT_SX}>
                   {PAYMENT_METHODS.map((m) => (
                     <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
                   ))}
                 </TextField>
-                <TextField
-                  label="Amount Paid"
+                <ToggleButtonGroup
+                  exclusive
+                  fullWidth
                   size="small"
-                  type="number"
-                  value={amountPaid}
-                  onChange={(e) => setAmountPaid(e.target.value)}
-                  inputProps={{ min: 0 }}
-                  helperText="Leave empty if paid in full"
-                  variant="outlined"
-                  sx={INPUT_SX}
-                />
+                  value={payMode}
+                  onChange={(_, v) => { if (v) setPayMode(v) }}
+                >
+                  <ToggleButton value="full" sx={{ textTransform: 'none', fontWeight: 600 }}>Paid in full</ToggleButton>
+                  <ToggleButton value="part" sx={{ textTransform: 'none', fontWeight: 600 }}>Part paid</ToggleButton>
+                  <ToggleButton value="later" sx={{ textTransform: 'none', fontWeight: 600 }}>Pay later</ToggleButton>
+                </ToggleButtonGroup>
+                {payMode === 'part' && (
+                  <TextField
+                    label="Amount received now"
+                    size="small"
+                    type="number"
+                    value={amountPaid}
+                    onChange={(e) => setAmountPaid(e.target.value)}
+                    inputProps={{ min: 0 }}
+                    error={amountPaid !== '' && partInvalid}
+                    helperText={amountPaid !== '' && partInvalid ? 'Must be more than 0 and less than the total' : `Balance ${money(pendingBalance)} stays pending`}
+                    variant="outlined"
+                    sx={INPUT_SX}
+                  />
+                )}
+                {payMode !== 'full' && (
+                  <Box>
+                    <TextField
+                      label="Payment due by (optional)"
+                      size="small"
+                      type="date"
+                      fullWidth
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                      inputProps={{ min: inDays(0) }}
+                      variant="outlined"
+                      sx={INPUT_SX}
+                    />
+                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                      <Button size="small" variant="outlined" onClick={() => setDueDate(inDays(1))}>Tomorrow</Button>
+                      <Button size="small" variant="outlined" onClick={() => setDueDate(inDays(2))}>2 days</Button>
+                      <Button size="small" variant="outlined" onClick={() => setDueDate(inDays(7))}>1 week</Button>
+                    </Stack>
+                  </Box>
+                )}
                 <TextField select label="Sale Source" size="small" value={source} onChange={(e) => setSource(e.target.value)} variant="outlined" sx={INPUT_SX}>
                   {SALE_SOURCES.map((m) => (
                     <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
@@ -450,7 +566,7 @@ export default function AdminNewSale() {
                 />
               </Stack>
 
-              <Divider sx={{ my: 3, borderColor: BORDER_COLOR }} />
+              <Divider sx={{ my: 2.5, borderColor: BORDER_COLOR }} />
 
               {/* Notes */}
               <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', mb: 2 }}>
@@ -488,12 +604,35 @@ export default function AdminNewSale() {
                   '&:hover': { boxShadow: '0 6px 20px rgba(14,165,233,0.5)' }
                 }}
               >
-                {submitting ? 'Processing...' : 'Complete Sale'}
+                {submitting ? 'Processing...' : payMode === 'full' ? 'Complete Sale' : 'Complete Sale (payment pending)'}
               </Button>
             </CardContent>
           </Card>
         </Box>
       </Box>
+
+      <Dialog open={!!boxPicker} onClose={() => setBoxPicker(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 1.5 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Choose devices from {boxPicker?.label}</DialogTitle>
+        <DialogContent dividers>
+          <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', mb: 1.5 }}>
+            Select the available devices this customer is taking. Unselected devices remain in inventory.
+          </Typography>
+          <Stack spacing={0.5} sx={{ maxHeight: 360, overflowY: 'auto' }}>
+            {(boxPicker?.items || []).map((item) => <Stack key={item.imei} direction="row" alignItems="center" spacing={1} sx={{ px: 1, py: 0.5, borderBottom: `1px solid ${BORDER_COLOR}` }}>
+              <Checkbox size="small" checked={selectedBoxImeis.includes(item.imei)} onChange={() => setSelectedBoxImeis((current) => current.includes(item.imei) ? current.filter((imei) => imei !== item.imei) : [...current, item.imei])} />
+              <Box sx={{ minWidth: 0 }}><Typography sx={{ fontFamily: 'monospace', fontSize: '0.82rem', fontWeight: 700 }}>{item.imei}</Typography><Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{item.product?.name || 'Device'}{item.box ? ` · ${item.box}` : ''}</Typography></Box>
+            </Stack>)}
+          </Stack>
+          {boxPicker?.blocked?.length > 0 && <Alert severity="warning" sx={{ mt: 2 }}>This box also contains {boxPicker.blocked.length} unavailable device(s); they cannot be selected.</Alert>}
+          {(!boxPicker?.items || boxPicker.items.length === 0) && <Alert severity="info" sx={{ mt: 1 }}>No available devices remain in this box.</Alert>}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setBoxPicker(null)} sx={{ textTransform: 'none' }}>Cancel</Button>
+          <Button variant="contained" color="info" disabled={!selectedBoxImeis.length} onClick={() => { addLines(boxPicker.items.filter((item) => selectedBoxImeis.includes(item.imei)), boxPicker.label); setBoxPicker(null) }} sx={{ borderRadius: 999, fontWeight: 700 }}>
+            Add {selectedBoxImeis.length} selected
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Confirmation Dialog */}
       <Dialog open={!!confirm} onClose={() => setConfirm(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2, border: `1px solid ${BORDER_COLOR}` } }}>

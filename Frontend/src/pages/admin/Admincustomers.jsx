@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Navigate, useNavigate, Link as RouterLink } from 'react-router-dom'
 import {
   Box, Typography, Stack, Button, InputBase, Snackbar, Alert, CircularProgress,
@@ -6,6 +6,8 @@ import {
 import SearchIcon from '@mui/icons-material/Search'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
+import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined'
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 import AdminLayout from './AdminLayout.jsx'
 import { money, fmtDate } from '../../components/admin/format.js'
 import { isAdminLoggedIn } from '../../lib/adminAuth.js'
@@ -33,23 +35,19 @@ export default function AdminCustomers() {
     return () => clearTimeout(t)
   }, [search])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await getCustomers({ q, page, limit: 25 })
-      setRows(data.customers)
-      setTotal(data.total)
-      setPages(data.pages || 1)
-    } catch (err) {
-      setToast(err?.message || 'Failed to load customers.')
-    } finally {
-      setLoading(false)
-    }
-  }, [q, page])
-
   useEffect(() => {
-    load()
-  }, [load])
+    let alive = true
+    getCustomers({ q, page, limit: 25 })
+      .then((data) => {
+        if (!alive) return
+        setRows(data.customers)
+        setTotal(data.total)
+        setPages(data.pages || 1)
+      })
+      .catch((err) => { if (alive) setToast(err?.message || 'Failed to load customers.') })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [q, page])
 
   if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
 
@@ -65,14 +63,13 @@ export default function AdminCustomers() {
           spacing={2}
           sx={{ mb: 3 }}
         >
-          <Box>
-            <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: { xs: '1.5rem', md: '1.75rem' }, lineHeight: 1.1, mb: 0.5 }}>
-              Customers &amp; ledgers
-            </Typography>
-            <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
-              Everyone you have sold to offline. Open a customer to see purchases, payments and their statement.
-            </Typography>
-          </Box>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Box sx={{ width: 44, height: 44, display: 'grid', placeItems: 'center', borderRadius: 1.5, bgcolor: 'rgba(8,127,134,0.1)', color: 'info.main' }}><PeopleAltOutlinedIcon /></Box>
+            <Box>
+              <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: { xs: '1.5rem', md: '1.85rem' }, lineHeight: 1.1, mb: 0.45 }}>Customers &amp; ledgers</Typography>
+              <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary' }}>Customer accounts, payments, device ownership and statements.</Typography>
+            </Box>
+          </Stack>
           <Button
             component={RouterLink}
             to="/admin/handover"
@@ -85,34 +82,30 @@ export default function AdminCustomers() {
           </Button>
         </Stack>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(2, minmax(0, 260px))' }, gap: 1.5, mb: 2.5 }}>
           {[
-            { label: 'Customers', value: total },
-            { label: 'Due on this page', value: money(pageDue) },
+            { label: 'Customers', value: total, icon: PeopleAltOutlinedIcon, tone: '#087F86' },
+            { label: 'Due on this page', value: money(pageDue), icon: AccountBalanceWalletOutlinedIcon, tone: pageDue > 0 ? '#C2410C' : '#0F8A5F' },
           ].map((t) => (
-            <Box key={t.label} sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-              <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'text.secondary' }}>
-                {t.label}
-              </Typography>
-              <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.8rem', lineHeight: 1.2 }}>
-                {t.value}
-              </Typography>
+            <Box key={t.label} sx={{ position: 'relative', p: 2, pl: 2.25, borderRadius: 1.5, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', overflow: 'hidden', '&::before': { content: '""', position: 'absolute', inset: '0 auto 0 0', width: 4, bgcolor: t.tone } }}>
+              <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'text.secondary' }}>{t.label}</Typography>
+              <Stack direction="row" justifyContent="space-between" alignItems="center"><Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.75rem', lineHeight: 1.2, mt: 0.45 }}>{t.value}</Typography><t.icon sx={{ color: t.tone, fontSize: 20 }} /></Stack>
             </Box>
           ))}
         </Box>
 
         <Box
           sx={{
-            display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1, mb: 3, borderRadius: 999,
+            display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.75, mb: 2.5, borderRadius: 999,
             border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
-            '&:focus-within': { borderColor: 'info.main' },
+            '&:focus-within': { borderColor: 'info.main', boxShadow: '0 0 0 3px rgba(8,127,134,0.08)' },
           }}
         >
           <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
           <InputBase placeholder="Search name, phone or city…" value={search} onChange={(e) => setSearch(e.target.value)} sx={{ fontSize: '0.88rem', flex: 1 }} />
         </Box>
 
-        <Box sx={{ borderRadius: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+        <Box sx={{ borderRadius: 1.5, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
               <CircularProgress size={32} sx={{ color: 'info.main' }} />
@@ -128,7 +121,7 @@ export default function AdminCustomers() {
             </Box>
           ) : (
             <>
-              <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: GRID, gap: 2, px: 3, py: 1.75, bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: GRID, gap: 2, px: 3, py: 1.5, bgcolor: '#F4F8F8', borderBottom: '1px solid', borderColor: 'divider' }}>
                 {HEADS.map((h) => (
                   <Typography key={h || 'x'} sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'text.secondary' }}>
                     {h}

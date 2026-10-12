@@ -23,8 +23,8 @@ const PRINT_CSS = `
 }
 `
 
-const label = { fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748B', mb: 0.5 }
-const th = { fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748B', pb: 1.5, borderBottom: '2px solid #E2E8F0' }
+const label = { fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#087F86', mb: 0.5 }
+const th = { fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#087F86', pb: 1.25, borderBottom: '2px solid #B9CBCD' }
 
 export default function AdminStatement() {
   const { id } = useParams()
@@ -63,20 +63,21 @@ export default function AdminStatement() {
     <Box className="invoice-page" sx={{ bgcolor: '#F2F7F7', minHeight: '100vh', py: 3, px: { xs: 1, sm: 2 } }}>
       <style>{PRINT_CSS}</style>
 
-      <Box className="no-print" sx={{ maxWidth: 850, mx: 'auto', mb: 3 }}>
+      <Box className="no-print" sx={{ maxWidth: 850, mx: 'auto', mb: 2.5 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
           <Button component={RouterLink} to={`/admin/customers/${id}`} startIcon={<ArrowBackIcon />} sx={{ textTransform: 'none', color: '#64748B', fontWeight: 600 }}>
             Back to customer
           </Button>
-          <Button onClick={() => window.print()} variant="contained" startIcon={<PrintOutlinedIcon />} disabled={!data} sx={{ borderRadius: 1, fontWeight: 600, px: 3, boxShadow: 'none', bgcolor: '#0F172A', '&:hover': { bgcolor: '#1E293B' } }}>
-            Print / Save as PDF
+          <Button onClick={() => window.print()} variant="contained" startIcon={<PrintOutlinedIcon />} disabled={!data} sx={{ borderRadius: 999, fontWeight: 700, px: 2.5, boxShadow: 'none', bgcolor: '#073B43', '&:hover': { bgcolor: '#0A5059' } }}>
+            Print statement
           </Button>
         </Stack>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
-          <TextField size="small" type="date" label="From" value={from} onChange={(e) => setFrom(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ bgcolor: '#fff' }} />
-          <TextField size="small" type="date" label="To" value={to} onChange={(e) => setTo(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ bgcolor: '#fff' }} />
-          <FormControlLabel control={<Switch checked={showDevices} onChange={(e) => setShowDevices(e.target.checked)} />} label="List IMEIs under each invoice" />
-          {(from || to) && <Button onClick={() => { setFrom(''); setTo('') }} sx={{ textTransform: 'none' }}>Clear dates</Button>}
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ p: 1, bgcolor: '#fff', border: '1px solid #D7E2E3', borderRadius: 1.5 }}>
+          <Typography sx={{ px: 1, fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748B' }}>Period</Typography>
+          <TextField size="small" type="date" label="From" value={from} onChange={(e) => setFrom(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ bgcolor: '#fff', minWidth: 145, '& .MuiOutlinedInput-root': { borderRadius: 1 } }} />
+          <TextField size="small" type="date" label="To" value={to} onChange={(e) => setTo(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ bgcolor: '#fff', minWidth: 145, '& .MuiOutlinedInput-root': { borderRadius: 1 } }} />
+          <FormControlLabel sx={{ ml: { sm: 'auto' }, mr: 0 }} control={<Switch checked={showDevices} onChange={(e) => setShowDevices(e.target.checked)} />} label={<Typography sx={{ fontSize: '0.78rem' }}>Show IMEIs</Typography>} />
+          {(from || to) && <Button onClick={() => { setFrom(''); setTo('') }} sx={{ textTransform: 'none', borderRadius: 999 }}>Clear</Button>}
         </Stack>
       </Box>
 

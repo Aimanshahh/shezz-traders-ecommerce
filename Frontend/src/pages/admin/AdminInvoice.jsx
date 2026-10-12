@@ -17,6 +17,7 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined'
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined'
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import { money, fmtDate, labelOf, PAYMENT_METHODS } from '../../components/admin/format.js'
 import { isAdminLoggedIn } from '../../lib/adminAuth.js'
 import { deleteSale, getSale, updateInvoiceEmail } from '../../services/api.js'
@@ -27,7 +28,7 @@ const PRINT_CSS = `
   .invoice-page { background: #fff !important; padding: 10mm !important; min-height: 0 !important; }
   .invoice-sheet { box-sizing: border-box !important; display: block !important; width: 100% !important; min-height: 0 !important; height: auto !important; box-shadow: none !important; border: none !important; border-radius: 0 !important; margin: 0 !important; max-width: none !important; padding: 0 7mm !important; }
   .invoice-banner { margin: 0 -7mm 8mm !important; }
-  .invoice-bottom { margin-top: 15mm !important; padding-top: 0 !important; }
+  .invoice-bottom { margin-top: 8mm !important; padding-top: 0 !important; }
   @page { size: A4; margin: 0; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   tr { page-break-inside: avoid; }
@@ -85,6 +86,7 @@ export default function AdminInvoice() {
 
   const sale = data?.sale
   const items = data?.items || []
+  const groupedItems = groupInvoiceItems(items)
   const shop = data?.settings || {}
   const returned = Number(sale?.returnedAmount || 0)
   const received = Number(sale?.amountPaid || 0) + Number(sale?.paidLater || 0)
@@ -159,6 +161,18 @@ export default function AdminInvoice() {
           Back to sales
         </Button>
         <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
+          {balanceDue > 0 && sale?.customer && (
+            <Button
+              component={RouterLink}
+              to={`/admin/customers/${sale.customer?._id || sale.customer}`}
+              startIcon={<PaymentsOutlinedIcon />}
+              variant="contained"
+              color="warning"
+              sx={{ borderRadius: 1, textTransform: 'none', whiteSpace: 'nowrap' }}
+            >
+              Record payment
+            </Button>
+          )}
           <Button onClick={handleDelete} disabled={!sale || deleting} startIcon={<DeleteOutlineIcon />} color="error" sx={{ textTransform: 'none' }}>
             Delete invoice
           </Button>
@@ -240,7 +254,18 @@ export default function AdminInvoice() {
               <Typography sx={labelStyle}>Date & payment</Typography>
               <Stack spacing={0.35} sx={{ mt: 0.5 }}>
                 <Typography sx={detailStyle}><strong>Date:</strong> {fmtDate(sale.saleDate)}</Typography>
-                <Typography sx={detailStyle}><strong>Method:</strong> {labelOf(PAYMENT_METHODS, sale.paymentMethod)}</Typography>
+                <Typography sx={detailStyle}>
+                  <strong>Method:</strong>{' '}
+                  {Number(sale.amountPaid || 0) + Number(sale.paidLater || 0) > 0
+                    ? labelOf(PAYMENT_METHODS, sale.paymentMethod)
+                    : 'Payment pending'}
+                </Typography>
+                {balanceDue > 0 && sale.dueDate && (
+                  <Typography sx={{ ...detailStyle, color: new Date(sale.dueDate) < new Date() ? '#B42318' : undefined }}>
+                    <strong>Payment due by:</strong> {fmtDate(sale.dueDate)}
+                    {new Date(sale.dueDate) < new Date() ? ' (overdue)' : ''}
+                  </Typography>
+                )}
                 {sale.paymentMethod === 'bank_transfer' && shop.bankName && <Typography sx={detailStyle}><strong>Bank:</strong> {shop.bankName}</Typography>}
                 {sale.paymentMethod === 'bank_transfer' && shop.bankAccountName && <Typography sx={detailStyle}><strong>Account title:</strong> {shop.bankAccountName}</Typography>}
                 {sale.paymentMethod === 'bank_transfer' && shop.bankAccountNumber && <Typography sx={detailStyle}><strong>Account number:</strong> {shop.bankAccountNumber}</Typography>}
@@ -259,15 +284,45 @@ export default function AdminInvoice() {
                 <Box component="th" sx={{ ...thStyle, width: 140, textAlign: 'right' }}>Amount</Box>
               </tr></thead>
               <tbody>
-                {items.map((item) => (
-                  <Box component="tr" key={item._id}>
-                    <Box component="td" sx={{ ...tdStyle, textAlign: 'center' }}>1</Box>
+                {groupedItems.map((group) => (
+                  <Box component="tr" key={group.key}>
+                    <Box component="td" sx={{ ...tdStyle, textAlign: 'center', fontWeight: 700 }}>{group.qty}</Box>
                     <Box component="td" sx={tdStyle}>
-                      <Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>{item.productName || 'Device'}</Typography>
-                      <Typography sx={{ fontFamily: 'monospace', fontSize: '0.76rem', color: '#526B70', mt: 0.3 }}>IMEI {item.imei}{item.boxCode ? ` · Box ${item.boxCode}` : ''}</Typography>
-                      <Typography sx={{ fontSize: '0.74rem', color: '#526B70', mt: 0.3 }}>Warranty until {item.warranty ? fmtDate(item.warranty.endDate) : '—'}</Typography>
+                      <Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>{group.productName}</Typography>
+                      {group.imeis.length > 0 && (
+                        <Typography sx={{ fontFamily: 'monospace', fontSize: '0.76rem', color: '#526B70', mt: 0.3, overflowWrap: 'anywhere' }}>
+                          {group.imeis.length === 1 ? `IMEI ${group.imeis[0]}` : `IMEIs ${group.imeis.join(', ')}`}
+                        </Typography>
+                      )}
+                      {group.boxes.length > 0 && (
+                        <Typography sx={{ fontFamily: 'monospace', fontSize: '0.72rem', color: '#7A9398', mt: 0.25 }}>
+                          {group.boxes.length === 1 ? `Box ${group.boxes[0]}` : `Boxes ${group.boxes.join(', ')}`}
+                        </Typography>
+                      )}
+                      {group.warrantyEnd && (
+                        <Typography sx={{ fontSize: '0.74rem', color: '#526B70', mt: 0.3 }}>
+                          {group.qty === 1 ? `Warranty until ${fmtDate(group.warrantyEnd)}` : `Warranty until ${fmtDate(group.warrantyEnd)} (each)`}
+                        </Typography>
+                      )}
                     </Box>
-                    <Box component="td" sx={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>{money(item.unitPrice)}</Box>
+                    <Box component="td" sx={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                      {money(group.lineTotal)}
+                      {group.qty > 1 && (
+                        <Typography sx={{ fontSize: '0.7rem', color: '#7A9398', fontWeight: 500 }}>
+                          {group.qty} × {money(group.unitPrice)}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                ))}
+                {(sale.extras || []).map((extra, index) => (
+                  <Box component="tr" key={`extra-${extra.product}-${index}`}>
+                    <Box component="td" sx={{ ...tdStyle, textAlign: 'center' }}>{extra.quantity}</Box>
+                    <Box component="td" sx={tdStyle}>
+                      <Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>{extra.name}</Typography>
+                      <Typography sx={{ fontSize: '0.74rem', color: '#526B70', mt: 0.3 }}>Additional component</Typography>
+                    </Box>
+                    <Box component="td" sx={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>{money(extra.total)}</Box>
                   </Box>
                 ))}
               </tbody>
@@ -288,32 +343,18 @@ export default function AdminInvoice() {
               {returned > 0 && <TotalRow label="Return credit" value={`-${money(returned)}`} />}
               <Divider sx={{ my: 1, borderColor: '#087F86' }} />
               <TotalRow label="Grand total" value={money(netTotal)} strong />
-              {sale.amountPaid > 0 && <TotalRow label="Paid at sale" value={money(sale.amountPaid)} />}
+              {sale.amountPaid > 0 && <TotalRow label={balanceDue > 0 ? 'Received' : 'Paid at sale'} value={money(sale.amountPaid)} />}
               {sale.paidLater > 0 && <TotalRow label="Paid later" value={money(sale.paidLater)} />}
               {refunded > 0 && <TotalRow label="Refunded" value={`-${money(refunded)}`} />}
-              {balanceDue > 0 && <TotalRow label="Balance due" value={money(balanceDue)} strong />}
+              {balanceDue > 0 && <TotalRow label="Balance due (pending)" value={money(balanceDue)} strong />}
               {accountCredit > 0 && <TotalRow label="Customer credit" value={money(accountCredit)} strong />}
             </Stack>
           </Box>
 
-          <Box className="invoice-bottom" sx={{ mt: 8 }}>
+          <Box className="invoice-bottom" sx={{ mt: 4 }}>
             <Divider sx={{ borderColor: '#B9CBCD' }} />
-            {/* Centered signature blocks with increased vertical spacing */}
-            <Stack 
-              direction="row" 
-              justifyContent="center" 
-              spacing={12} 
-              sx={{ pt: 6, mt: 2 }}
-            >
-              <Box sx={{ width: '35%', borderTop: '1px solid #9FB5B7', pt: 1.5, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: '0.75rem', color: '#526B70' }}>Customer signature</Typography>
-              </Box>
-              <Box sx={{ width: '35%', borderTop: '1px solid #9FB5B7', pt: 1.5, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: '0.75rem', color: '#526B70' }}>Authorised signature</Typography>
-              </Box>
-            </Stack>
             {shop.invoiceFooter && (
-              <Typography sx={{ textAlign: 'center', color: '#526B70', fontSize: '0.75rem', mt: 6 }}>
+              <Typography sx={{ textAlign: 'center', color: '#526B70', fontSize: '0.75rem', mt: 2 }}>
                 {shop.invoiceFooter}
               </Typography>
             )}
@@ -322,6 +363,26 @@ export default function AdminInvoice() {
       )}
     </Box>
   )
+}
+
+function groupInvoiceItems(items) {
+  const groups = new Map()
+  items.forEach((item) => {
+    const productName = item.productName || 'Device'
+    const unitPrice = Number(item.unitPrice || 0)
+    const warrantyEnd = item.warranty?.endDate || null
+    const key = `${productName}|${unitPrice}|${warrantyEnd || ''}`
+    let group = groups.get(key)
+    if (!group) {
+      group = { key, productName, unitPrice, warrantyEnd, qty: 0, lineTotal: 0, imeis: [], boxes: [] }
+      groups.set(key, group)
+    }
+    group.qty += 1
+    group.lineTotal += unitPrice
+    if (item.imei) group.imeis.push(item.imei)
+    if (item.boxCode && !group.boxes.includes(item.boxCode)) group.boxes.push(item.boxCode)
+  })
+  return [...groups.values()]
 }
 
 function TotalRow({ label, value, strong }) {

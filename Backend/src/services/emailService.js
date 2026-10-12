@@ -21,6 +21,7 @@ function getTransporter() {
 
 // ─── Format PKR ──────────────────────────────────
 const pkr = (n) => `PKR ${Number(n || 0).toLocaleString()}`
+const INVOICE_FROM = process.env.INVOICE_EMAIL_FROM || 'info@shezztraders.com'
 
 const PAYMENT_LABELS = {
   cod: 'Cash on Delivery',
@@ -340,13 +341,15 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => 
 
 function crmInvoiceTemplate({ sale, items, settings }) {
   const shopName = escapeHtml(settings.shopName || 'Shezz Traders')
-  const rows = items.map((item) => `
+  const rows = [
+    ...items.map((item) => ({ quantity: 1, name: item.productName || 'Device', detail: `IMEI ${item.imei}${item.boxCode ? ` · Box ${item.boxCode}` : ''}`, unitPrice: item.unitPrice })),
+    ...(sale.extras || []).map((extra) => ({ quantity: extra.quantity, name: extra.name, detail: 'Additional component', unitPrice: extra.total })),
+  ].map((item) => `
     <tr>
-      <td style="padding:12px 10px;border-bottom:1px solid #d9e4e5;text-align:center">1</td>
+      <td style="padding:12px 10px;border-bottom:1px solid #d9e4e5;text-align:center">${item.quantity}</td>
       <td style="padding:12px 10px;border-bottom:1px solid #d9e4e5">
-        <strong>${escapeHtml(item.productName || 'Device')}</strong><br>
-        <span style="font:12px monospace;color:#526b70">IMEI ${escapeHtml(item.imei)}</span>
-        ${item.boxCode ? `<br><span style="font-size:12px;color:#526b70">Box ${escapeHtml(item.boxCode)}</span>` : ''}
+        <strong>${escapeHtml(item.name)}</strong><br>
+        <span style="font-size:12px;color:#526b70">${escapeHtml(item.detail)}</span>
       </td>
       <td style="padding:12px 10px;border-bottom:1px solid #d9e4e5;text-align:right;white-space:nowrap">${pkr(item.unitPrice)}</td>
     </tr>`).join('')
@@ -418,7 +421,7 @@ export async function sendCrmInvoiceEmail({ sale, items, settings, recipient }) 
   }
   try {
     const info = await getTransporter().sendMail({
-      from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+      from: INVOICE_FROM,
       to: recipient,
       replyTo: settings.email || undefined,
       subject: `Invoice ${sale.invoiceNumber} from ${settings.shopName || 'Shezz Traders'}`,

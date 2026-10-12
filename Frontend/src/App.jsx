@@ -21,7 +21,7 @@ import AdminCategories from './pages/admin/AdminCategories.jsx'
 import AdminOrders from './pages/admin/AdminOrders.jsx'
 
 // Device Management (CRM)
-import AdminDevices from './pages/admin/AdminDevices.jsx'
+import AdminDevices from './pages/admin/Admindevices.jsx'
 import AdminDeviceImport from './pages/admin/AdminDeviceImport.jsx'
 import AdminDeviceDetail from './pages/admin/Admindevicedetail.jsx'
 import AdminBoxes from './pages/admin/AdminBoxes.jsx'
