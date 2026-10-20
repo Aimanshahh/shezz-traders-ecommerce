@@ -6,8 +6,8 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined'
-import Papa from 'papaparse'
-import readXlsxFile from 'read-excel-file'
+import Papa from 'papaparse' 
+import readXlsxFile from 'read-excel-file/browser'
 import { ADMIN_SHELL } from '../../lib/stockShell.js'
 import { getProducts, previewDeviceImport, importDevices } from '../../services/api.js'
 

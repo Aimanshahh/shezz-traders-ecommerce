@@ -5,7 +5,7 @@ import { protect, adminOnly } from '../middleware/auth.js'
 const router = express.Router()
 
 function buildUrl(req, filename) {
-  return `${req.protocol}://${req.get('host')}/uploads/${filename}`
+  return `/uploads/${filename}`
 }
 
 // ── POST /api/upload — single image (kept for backward compat)
