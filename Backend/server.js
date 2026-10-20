@@ -18,6 +18,8 @@ import paymentRoutes from './src/routes/payments.js'
 import transferRoutes from './src/routes/transfers.js'
 import returnRoutes from './src/routes/returns.js'
 import reportRoutes from './src/routes/reports.js'
+import adminUserRoutes from './src/routes/adminUsers.js'
+import staffRoutes from './src/routes/staff.js'
 
 
 dotenv.config()
@@ -33,6 +35,10 @@ app.use((req, res, next) => {
   next()
 })
 
+// RFC 1918 addresses only: 10.x, 172.16-31.x, 192.168.x, with any dev port.
+const PRIVATE_ORIGIN =
+  /^https?:\/\/(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})(?::\d+)?$/
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -40,6 +46,9 @@ app.use(
       if (/^http:\/\/localhost:\d+$/.test(origin)) {
         return callback(null, true)
       }
+      // A phone or another machine on the same Wi-Fi reaches the dev server by its
+      // private address (e.g. http://192.168.1.20:5173), never by localhost.
+      if (PRIVATE_ORIGIN.test(origin)) return callback(null, true)
       if (origin === process.env.CLIENT_URL) return callback(null, true)
       callback(new Error(`Origin ${origin} not allowed`))
     },
@@ -67,6 +76,7 @@ app.get('/api/health', (req, res) => {
 })
 
 // ─── Routes
+app.use('/api/admin/users', adminUserRoutes)
 app.use('/api/admin', authRoutes)
 app.use('/api/products', productRoutes)
 app.use('/api/categories', categoryRoutes)
@@ -82,6 +92,7 @@ app.use('/api/payments', paymentRoutes)
 app.use('/api/transfers', transferRoutes)
 app.use('/api/returns', returnRoutes)
 app.use('/api/reports', reportRoutes)
+app.use('/api/staff', staffRoutes)
 
 // ─── 404
 app.use((req, res) => {

@@ -7,7 +7,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 const TOKEN_KEY = 'shezz_admin_token'
 const ADMIN_KEY = 'shezz_admin_user'
 
-// ─── JWT payload decoder (no verification, just reads exp) ─
+// ─── JWT payload decoder (no verification, just reads exp/role) ─
 function decodeJwtPayload(token) {
   try {
     const base64Url = token.split('.')[1]
@@ -30,6 +30,9 @@ function isTokenExpired(token) {
   // exp is in seconds, Date.now is milliseconds
   return payload.exp * 1000 < Date.now()
 }
+
+export const isSalespersonRole = (role) =>
+  String(role || '').trim().toLowerCase() === 'salesperson'
 
 // ─── Login ────────────────────────────────────────────
 export async function loginAdmin(email, password, remember = false) {
@@ -71,21 +74,15 @@ export function getAdminUser() {
   }
 }
 
-// ─── Is admin logged in? (now validates token expiry) ─
+// ─── Is admin logged in? (valid token and not a salesperson) ─
 export function isAdminLoggedIn() {
-  const token =
-    localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY)
-
+  const token = getToken()
   if (!token) return false
 
-  // Reject expired tokens
-  if (isTokenExpired(token)) {
-    // Clean up stale data
-    logoutAdmin()
-    return false
-  }
-
-  return true
+  // Older tokens did not carry a role. Those can only belong to the owner, so
+  // they keep working; new salesperson tokens are always rejected here.
+  const role = getAdminUser()?.role || decodeJwtPayload(token)?.role
+  return !isSalespersonRole(role)
 }
 
 // ─── Get raw token (used by api.js) ───────────────────

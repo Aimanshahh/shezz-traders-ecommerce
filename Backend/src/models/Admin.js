@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import bcrypt from 'bcryptjs'
+import { ROLE_ADMIN } from '../utils/roles.js'
 
 const adminSchema = new mongoose.Schema(
   {
@@ -20,7 +21,22 @@ const adminSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      default: 'Administrator',
+      default: ROLE_ADMIN,
+    },
+    // Deactivating keeps the account and its history but blocks sign-in.
+    isActive: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+      default: null,
+    },
+    lastLoginAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

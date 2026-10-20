@@ -8,11 +8,10 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import LinkOffIcon from '@mui/icons-material/LinkOff'
-import AdminLayout from './AdminLayout.jsx'
 import IMEIScanner from '../admin/IMEIScanner.jsx'
 import DeviceStatusChip from '../admin/DeviceStatusChip.jsx'
 import BoxStateChip from '../admin/BoxStateChip.jsx'
-import { isAdminLoggedIn } from '../../lib/adminAuth.js'
+import { ADMIN_SHELL } from '../../lib/stockShell.js'
 import {
   getBox,
   addDevicesToBox,
@@ -46,7 +45,8 @@ function describeBox(r, code) {
   return { tone: 'info', text: code }
 }
 
-export default function AdminBoxDetail() {
+export default function AdminBoxDetail({ shell = ADMIN_SHELL }) {
+  const { Layout, base, isLoggedIn, loginTo, canDelete } = shell
   const { id } = useParams()
   const navigate = useNavigate()
   const [box, setBox] = useState(null)
@@ -137,7 +137,7 @@ export default function AdminBoxDetail() {
     setDeleting(true)
     try {
       await deleteBox(id)
-      navigate('/admin/boxes', { replace: true })
+      navigate(`${base}/boxes`, { replace: true })
     } catch (err) {
       setToast({ severity: 'error', text: err?.message || 'Could not delete.' })
       setConfirmDelete(false)
@@ -146,17 +146,17 @@ export default function AdminBoxDetail() {
     }
   }
 
-  if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
+  if (!isLoggedIn()) return <Navigate to={loginTo} replace />
 
   const isCarton = box?.type === 'carton'
   const s = box?.summary
 
   return (
-    <AdminLayout title={box ? `${isCarton ? 'Carton' : 'Box'} ${box.code}` : 'Box'}>
+    <Layout title={box ? `${isCarton ? 'Carton' : 'Box'} ${box.code}` : 'Box'}>
       <Box sx={{ maxWidth: 900, mx: 'auto' }}>
         <Button
           component={RouterLink}
-          to="/admin/boxes"
+          to={`${base}/boxes`}
           startIcon={<ArrowBackIcon />}
           sx={{ textTransform: 'none', color: 'text.secondary', mb: 2 }}
         >
@@ -181,19 +181,21 @@ export default function AdminBoxDetail() {
                 </Typography>
                 <BoxStateChip state={box.state} />
                 <Box sx={{ flex: 1 }} />
-                <Tooltip title="Only empty boxes can be deleted">
-                  <span>
-                    <Button
-                      onClick={() => setConfirmDelete(true)}
-                      disabled={s.total > 0 || s.childBoxes > 0}
-                      startIcon={<DeleteOutlineIcon />}
-                      color="error"
-                      sx={{ textTransform: 'none' }}
-                    >
-                      Delete
-                    </Button>
-                  </span>
-                </Tooltip>
+                {canDelete && (
+                  <Tooltip title="Only empty boxes can be deleted">
+                    <span>
+                      <Button
+                        onClick={() => setConfirmDelete(true)}
+                        disabled={s.total > 0 || s.childBoxes > 0}
+                        startIcon={<DeleteOutlineIcon />}
+                        color="error"
+                        sx={{ textTransform: 'none' }}
+                      >
+                        Delete
+                      </Button>
+                    </span>
+                  </Tooltip>
+                )}
               </Stack>
               <Typography sx={{ fontSize: '0.88rem', color: 'text.secondary' }}>
                 {isCarton ? 'Carton' : 'Box'}
@@ -201,7 +203,7 @@ export default function AdminBoxDetail() {
                 {box.parent ? (
                   <>
                     {' · in carton '}
-                    <Link component={RouterLink} to={`/admin/boxes/${box.parent._id}`}>
+                    <Link component={RouterLink} to={`${base}/boxes/${box.parent._id}`}>
                       {box.parent.code}
                     </Link>
                   </>
@@ -299,7 +301,7 @@ export default function AdminBoxDetail() {
                     >
                       <Link
                         component={RouterLink}
-                        to={`/admin/boxes/${c._id}`}
+                        to={`${base}/boxes/${c._id}`}
                         sx={{ fontFamily: 'monospace', fontWeight: 700, minWidth: 110 }}
                       >
                         {c.code}
@@ -331,7 +333,7 @@ export default function AdminBoxDetail() {
                   >
                     <Link
                       component={RouterLink}
-                      to={`/admin/devices/${d._id}`}
+                      to={`${base}/devices/${d._id}`}
                       sx={{ fontFamily: 'monospace', fontWeight: 600, flex: 1 }}
                     >
                       {d.imei}
@@ -352,10 +354,10 @@ export default function AdminBoxDetail() {
         )}
       </Box>
 
-      <Dialog open={confirmDelete} onClose={() => !deleting && setConfirmDelete(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
+      <Dialog open={canDelete && confirmDelete} onClose={() => !deleting && setConfirmDelete(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
         <DialogTitle sx={{ fontWeight: 700 }}>Delete {box?.code}?</DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ fontSize: '0.9rem' }}>This empty {isCarton ? 'carton' : 'box'} will be removed.</DialogContentText>
+          <DialogContentText sx={{ fontSize: '0.9rem' }}>This empty {isCarton ? 'carton' : 'box'} will be removed.        </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button onClick={() => setConfirmDelete(false)} disabled={deleting} sx={{ textTransform: 'none', color: 'text.secondary' }}>
@@ -372,7 +374,7 @@ export default function AdminBoxDetail() {
           {toast?.text}
         </Alert>
       </Snackbar>
-    </AdminLayout>
+    </Layout>
   )
 }
 

@@ -5,9 +5,8 @@ import {
   Snackbar, Link,
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import AdminLayout from './AdminLayout.jsx'
 import DeviceStatusChip, { STATUS_META } from '../admin/DeviceStatusChip.jsx'
-import { isAdminLoggedIn } from '../../lib/adminAuth.js'
+import { ADMIN_SHELL } from '../../lib/stockShell.js'
 import { getDevice, updateDeviceStatus, deleteDevice } from '../../services/api.js'
 import { WARRANTY_LABELS } from '../../components/admin/format.js'
 
@@ -36,7 +35,8 @@ const fmtDateTime = (d) =>
     minute: '2-digit',
   })
 
-export default function AdminDeviceDetail() {
+export default function AdminDeviceDetail({ shell = ADMIN_SHELL }) {
+  const { Layout, base, isLoggedIn, loginTo, canDelete, adminLinks } = shell
   const { id } = useParams()
   const navigate = useNavigate()
   const [device, setDevice] = useState(null)
@@ -88,7 +88,7 @@ export default function AdminDeviceDetail() {
     return () => { alive = false }
   }, [id])
 
-  if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
+  if (!isLoggedIn()) return <Navigate to={loginTo} replace />
 
   const handleStatus = async () => {
     if (!newStatus) return
@@ -110,7 +110,7 @@ export default function AdminDeviceDetail() {
     if (!window.confirm(`Delete ${device.imei} permanently? This also removes its history. This cannot be undone.`)) return
     try {
       await deleteDevice(id)
-      navigate('/admin/devices')
+      navigate(`${base}/devices`)
     } catch (err) {
       setToast({ severity: 'error', text: err?.message || 'Could not delete this device.' })
     }
@@ -119,17 +119,17 @@ export default function AdminDeviceDetail() {
   const options = MANUAL_STATUSES.filter((s) => s !== device?.status)
 
   return (
-    <AdminLayout title="Device">
+    <Layout title="Device">
       <Box sx={{ maxWidth: 900, mx: 'auto' }}>
         <Button
           component={RouterLink}
-          to="/admin/devices"
+          to={`${base}/devices`}
           startIcon={<ArrowBackIcon />}
           sx={{ textTransform: 'none', color: 'text.secondary', mb: 2 }}
         >
           Back to devices
         </Button>
-        {device && device.status !== 'sold' && (
+        {canDelete && device && device.status !== 'sold' && (
           <Button
             onClick={handleDelete}
             color="error"
@@ -174,7 +174,7 @@ export default function AdminDeviceDetail() {
                   Box:{' '}
                   <Link
                     component={RouterLink}
-                    to={`/admin/boxes/${device.box._id}`}
+                    to={`${base}/boxes/${device.box._id}`}
                     sx={{ fontFamily: 'monospace', fontWeight: 700 }}
                   >
                     {device.box.code}
@@ -185,13 +185,19 @@ export default function AdminDeviceDetail() {
               {sale && (
                 <Typography sx={{ fontSize: '0.88rem', color: 'text.secondary', mt: 0.5 }}>
                   Sold on{' '}
-                  <Link
-                    component={RouterLink}
-                    to={`/admin/sales/${sale.saleId}`}
-                    sx={{ fontFamily: 'monospace', fontWeight: 700 }}
-                  >
-                    {sale.invoiceNumber}
-                  </Link>
+                  {adminLinks ? (
+                    <Link
+                      component={RouterLink}
+                      to={`${base}/sales/${sale.saleId}`}
+                      sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                    >
+                      {sale.invoiceNumber}
+                    </Link>
+                  ) : (
+                    <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 700 }}>
+                      {sale.invoiceNumber}
+                    </Box>
+                  )}
                   {` · ${sale.customerName}${sale.customerPhone ? ` (${sale.customerPhone})` : ''} · ${fmtDateTime(
                     sale.saleDate
                   )}`}
@@ -229,14 +235,14 @@ export default function AdminDeviceDetail() {
               {device.status === 'sold' ? (
                 <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} spacing={1.5}>
                   <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', flex: 1 }}>
-                    A sold device can't be changed by hand. Open a case to record a return or warranty claim.
+                    A sold device can&apos;t be changed by hand. Open a case to record a return or warranty claim.
                   </Typography>
                   {openCase ? (
-                    <Button component={RouterLink} to={`/admin/returns/${openCase._id}`} variant="outlined" color="info" sx={{ textTransform: 'none' }}>
+                    <Button component={RouterLink} to={`${base}/returns/${openCase._id}`} variant="outlined" color="info" sx={{ textTransform: 'none' }}>
                       View {openCase.caseNumber}
                     </Button>
                   ) : (
-                    <Button component={RouterLink} to={`/admin/returns/new?imei=${encodeURIComponent(device.imei)}`} variant="contained" color="info" sx={{ textTransform: 'none', fontWeight: 700 }}>
+                    <Button component={RouterLink} to={`${base}/returns/new?imei=${encodeURIComponent(device.imei)}`} variant="contained" color="info" sx={{ textTransform: 'none', fontWeight: 700 }}>
                       Open return case
                     </Button>
                   )}
@@ -283,9 +289,13 @@ export default function AdminDeviceDetail() {
                 {holder && (
                   <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', mb: 2 }}>
                     Currently with{' '}
-                    <Link component={RouterLink} to={`/admin/customers/${holder.id}`} sx={{ fontWeight: 700 }}>
-                      {holder.name}
-                    </Link>
+                    {adminLinks ? (
+                      <Link component={RouterLink} to={`${base}/customers/${holder.id}`} sx={{ fontWeight: 700 }}>
+                        {holder.name}
+                      </Link>
+                    ) : (
+                      <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{holder.name}</Box>
+                    )}
                   </Typography>
                 )}
                 <Stack spacing={1.25}>
@@ -297,15 +307,31 @@ export default function AdminDeviceDetail() {
                       {e.type === 'sale' ? (
                         <>
                           Shezz Traders sold to{' '}
-                          <Link component={RouterLink} to={`/admin/customers/${e.customerId}`} sx={{ fontWeight: 700 }}>{e.customerName}</Link>
+                          {adminLinks ? (
+                            <Link component={RouterLink} to={`${base}/customers/${e.customerId}`} sx={{ fontWeight: 700 }}>{e.customerName}</Link>
+                          ) : (
+                            <Box component="span" sx={{ fontWeight: 700 }}>{e.customerName}</Box>
+                          )}
                           {' · '}
-                          <Link component={RouterLink} to={`/admin/sales/${e.saleId}`} sx={{ fontFamily: 'monospace' }}>{e.invoiceNumber}</Link>
+                          {adminLinks ? (
+                            <Link component={RouterLink} to={`${base}/sales/${e.saleId}`} sx={{ fontFamily: 'monospace' }}>{e.invoiceNumber}</Link>
+                          ) : (
+                            <Box component="span" sx={{ fontFamily: 'monospace' }}>{e.invoiceNumber}</Box>
+                          )}
                         </>
                       ) : (
                         <>
-                          <Link component={RouterLink} to={`/admin/customers/${e.fromId}`} sx={{ fontWeight: 700 }}>{e.fromName}</Link>
+                          {adminLinks ? (
+                            <Link component={RouterLink} to={`${base}/customers/${e.fromId}`} sx={{ fontWeight: 700 }}>{e.fromName}</Link>
+                          ) : (
+                            <Box component="span" sx={{ fontWeight: 700 }}>{e.fromName}</Box>
+                          )}
                           {' passed to '}
-                          <Link component={RouterLink} to={`/admin/customers/${e.toId}`} sx={{ fontWeight: 700 }}>{e.toName}</Link>
+                          {adminLinks ? (
+                            <Link component={RouterLink} to={`${base}/customers/${e.toId}`} sx={{ fontWeight: 700 }}>{e.toName}</Link>
+                          ) : (
+                            <Box component="span" sx={{ fontWeight: 700 }}>{e.toName}</Box>
+                          )}
                           {e.note ? ` · ${e.note}` : ''}
                         </>
                       )}
@@ -401,6 +427,6 @@ export default function AdminDeviceDetail() {
           {toast?.text}
         </Alert>
       </Snackbar>
-    </AdminLayout>
+    </Layout>
   )
 }

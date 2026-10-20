@@ -1,5 +1,7 @@
 import mongoose from 'mongoose'
 import Customer from '../models/Customer.js'
+import CustomerPrice from '../models/CustomerPrice.js'
+import Product from '../models/Product.js'
 import Sale from '../models/Sale.js'
 import SaleItem from '../models/SaleItem.js'
 import Warranty from '../models/Warranty.js'
@@ -140,12 +142,20 @@ export async function getCustomer(req, res, next) {
     const myId = String(customer._id)
 
     const [sales, payments, outRows, inRows, returnCases] = await Promise.all([
-      Sale.find({ customer: customer._id }).sort({ saleDate: -1, createdAt: -1 }).limit(200).lean(),
+      // Submissions waiting for review are not invoices yet: they must not appear
+      // in the ledger, devices list or payment dialogs until the admin approves them.
+      Sale.find({ customer: customer._id, status: { $in: ['completed', 'void'] } })
+        .sort({ saleDate: -1, createdAt: -1 })
+        .limit(200)
+        .lean(),
       Payment.find({ customer: customer._id }).sort({ date: -1, createdAt: -1 }).limit(200).lean(),
       Transfer.find({ from: customer._id }).populate('to', 'name phone').sort({ date: -1 }).lean(),
       Transfer.find({ to: customer._id }).populate('from', 'name phone').sort({ date: -1 }).lean(),
       ReturnCase.find({ customer: customer._id }).sort({ openedAt: -1 }).limit(100).lean(),
     ])
+    const prices = await CustomerPrice.find({ customer: customer._id })
+      .populate('product', 'name')
+      .lean()
     const saleById = new Map(sales.map((s) => [String(s._id), s]))
 
     const items = await SaleItem.find({ sale: { $in: sales.map((s) => s._id) } }).lean()
@@ -217,6 +227,11 @@ export async function getCustomer(req, res, next) {
       passedOn: groupTransfers(outRows, 'to'),
       receivedFrom: groupTransfers(inRows, 'from'),
       returnCases,
+      prices: prices.map((p) => ({
+        product: p.product?._id || p.product,
+        name: p.product?.name || '',
+        price: p.price,
+      })),
     })
   } catch (err) {
     next(err)
@@ -283,6 +298,40 @@ export async function getLedger(req, res, next) {
   }
 }
 
+// POST /api/customers  { name, phone?, city?, address?, email?, notes? }
+// Name is the identifier; the phone stays optional so a walk-in can be recorded.
+export async function createCustomer(req, res, next) {
+  try {
+    const b = req.body || {}
+    const name = String(b.name ?? '').trim()
+    if (!name) return res.status(400).json({ ok: false, message: 'Customer name is required' })
+
+    const phone = normalizePhone(b.phone)
+    if (phone && !isValidPhone(phone)) {
+      return res.status(400).json({ ok: false, message: 'Enter a valid phone number' })
+    }
+    if (phone) {
+      const clash = await Customer.findOne({ phone }).select('_id').lean()
+      if (clash) return res.status(409).json({ ok: false, message: 'A customer with this phone number already exists' })
+    }
+
+    const customer = await Customer.create({
+      name,
+      phone,
+      city: String(b.city ?? '').trim(),
+      address: String(b.address ?? '').trim(),
+      email: String(b.email ?? '').trim(),
+      notes: String(b.notes ?? '').trim(),
+    })
+    res.status(201).json({ ok: true, customer })
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ ok: false, message: 'A customer with this phone number already exists' })
+    }
+    next(err)
+  }
+}
+
 // PATCH /api/customers/:id
 export async function updateCustomer(req, res, next) {
   try {
@@ -299,10 +348,15 @@ export async function updateCustomer(req, res, next) {
       customer.name = name
     }
     if (b.phone !== undefined) {
-      const phone = normalizePhone(b.phone)
-      if (!isValidPhone(phone)) return res.status(400).json({ ok: false, message: 'Invalid phone number' })
-      const clash = await Customer.findOne({ phone, _id: { $ne: customer._id } }).select('_id').lean()
-      if (clash) return res.status(409).json({ ok: false, message: 'Another customer already has this phone number' })
+      const raw = String(b.phone ?? '').trim()
+      const phone = raw ? normalizePhone(raw) : ''
+      if (phone && !isValidPhone(phone)) {
+        return res.status(400).json({ ok: false, message: 'Invalid phone number' })
+      }
+      if (phone) {
+        const clash = await Customer.findOne({ phone, _id: { $ne: customer._id } }).select('_id').lean()
+        if (clash) return res.status(409).json({ ok: false, message: 'Another customer already has this phone number' })
+      }
       customer.phone = phone
     }
     ;['city', 'address', 'email', 'notes'].forEach((f) => {
@@ -338,6 +392,85 @@ export async function deleteCustomer(req, res, next) {
     }
     await customer.deleteOne()
     res.json({ ok: true })
+  } catch (err) {
+    next(err)
+  }
+}
+// GET /api/customers/:id/prices
+export async function getCustomerPrices(req, res, next) {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ ok: false, message: 'Invalid customer id' })
+    }
+    const prices = await CustomerPrice.find({ customer: req.params.id })
+      .populate('product', 'name')
+      .lean()
+    res.json({
+      ok: true,
+      prices: prices.map((p) => ({
+        product: p.product?._id || p.product,
+        name: p.product?.name || '',
+        price: p.price,
+      })),
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// PUT /api/customers/:id/prices   { prices: [{ productId, price }] }
+// Replaces the whole rate card: a product left out means "no rate configured", which
+// blocks a salesperson from submitting a sale for it instead of defaulting to zero.
+export async function updateCustomerPrices(req, res, next) {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ ok: false, message: 'Invalid customer id' })
+    }
+    const customer = await Customer.findById(req.params.id).select('_id').lean()
+    if (!customer) return res.status(404).json({ ok: false, message: 'Customer not found' })
+
+    const raw = Array.isArray(req.body?.prices) ? req.body.prices : null
+    if (!raw) {
+      return res.status(400).json({ ok: false, message: 'Send the rates as a list' })
+    }
+
+    const entries = new Map()
+    for (const row of raw) {
+      if (!mongoose.isValidObjectId(row?.productId)) {
+        return res.status(400).json({ ok: false, message: 'One of the products is invalid' })
+      }
+      const price = Number(row?.price)
+      if (!Number.isFinite(price) || price < 0) {
+        return res.status(400).json({ ok: false, message: 'Enter a valid rate for every product' })
+      }
+      entries.set(String(row.productId), round2(price))
+    }
+
+    const ids = [...entries.keys()]
+    if (ids.length) {
+      const found = await Product.countDocuments({ _id: { $in: ids } })
+      if (found !== ids.length) {
+        return res.status(400).json({ ok: false, message: 'One or more products no longer exist' })
+      }
+    }
+
+    await CustomerPrice.deleteMany({ customer: customer._id, product: { $nin: ids } })
+    if (ids.length) {
+      await CustomerPrice.bulkWrite(
+        ids.map((product) => ({
+          updateOne: {
+            filter: { customer: customer._id, product },
+            update: {
+              $set: { price: entries.get(product), updatedBy: req.admin?._id || null },
+            },
+            upsert: true,
+          },
+        }))
+      )
+    }
+
+    const prices = await CustomerPrice.find({ customer: customer._id }).lean()
+    res.json({ ok: true, prices: prices.map((p) => ({ product: p.product, price: p.price })) })
   } catch (err) {
     next(err)
   }

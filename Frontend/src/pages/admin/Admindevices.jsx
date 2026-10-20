@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Navigate, Link as RouterLink, useNavigate } from 'react-router-dom'
 import {
   Box, Typography, Stack, Button, InputBase, TextField, MenuItem, Dialog,
   DialogTitle, DialogContent, DialogActions, Snackbar, Alert, CircularProgress,
-  IconButton,
+  IconButton, Card, CardContent
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
@@ -11,13 +11,12 @@ import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import CloseIcon from '@mui/icons-material/Close'
-import AdminLayout from './AdminLayout.jsx'
 import IMEIScanner from '../admin/IMEIScanner.jsx'
 import DeviceStatusChip, {
   DEVICE_STATUS_LIST,
   STATUS_META,
 } from '../admin/DeviceStatusChip.jsx'
-import { isAdminLoggedIn } from '../../lib/adminAuth.js'
+import { ADMIN_SHELL } from '../../lib/stockShell.js'
 import { WARRANTY_LABELS } from '../../components/admin/format.js'
 import {
   getDevices,
@@ -32,7 +31,8 @@ const fmtDate = (d) =>
 
 const GRID = { xs: '1fr auto', md: '2fr 2fr 1fr 1fr 2fr 1fr 40px' }
 
-export default function AdminDevices() {
+export default function AdminDevices({ shell = ADMIN_SHELL }) {
+  const { Layout, base, isLoggedIn, loginTo } = shell
   const navigate = useNavigate()
   const [devices, setDevices] = useState([])
   const [total, setTotal] = useState(0)
@@ -146,7 +146,20 @@ export default function AdminDevices() {
     setScanResult(null)
   }
 
-  if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
+  if (!isLoggedIn()) return <Navigate to={loginTo} replace />
+
+  // Combines the stats with your real product database names
+  const modelBreakdown = useMemo(() => {
+    if (!stats?.breakdown) return []
+    
+    return stats.breakdown.map(stat => {
+      const product = products.find(p => (p._id || p.id) === stat.productId)
+      return {
+        ...stat,
+        name: product ? product.name : 'Unknown Device Model'
+      }
+    })
+  }, [stats, products])
 
   const statCards = [
     { key: '', label: 'Total', value: stats?.total },
@@ -157,8 +170,8 @@ export default function AdminDevices() {
   ]
 
   return (
-    <AdminLayout title="Devices / IMEI">
-      <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
+    <Layout title="Devices / IMEI">
+      <Box sx={{ maxWidth: 1400, mx: 'auto', pb: 4 }}>
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           alignItems={{ xs: 'flex-start', md: 'center' }}
@@ -190,17 +203,17 @@ export default function AdminDevices() {
               color="info"
               startIcon={<QrCodeScannerIcon />}
               onClick={() => setScanOpen(true)}
-              sx={{ borderRadius: 999, fontWeight: 700, px: 2.5 }}
+              sx={{ borderRadius: 1.5, fontWeight: 700, px: 2.5 }}
             >
               Scan
             </Button>
             <Button
               component={RouterLink}
-              to="/admin/devices/import"
+              to={`${base}/devices/import`}
               variant="outlined"
               color="info"
               startIcon={<UploadFileOutlinedIcon />}
-              sx={{ borderRadius: 999, fontWeight: 700, px: 2.5 }}
+              sx={{ borderRadius: 1.5, fontWeight: 700, px: 2.5 }}
             >
               Bulk import
             </Button>
@@ -209,14 +222,14 @@ export default function AdminDevices() {
               color="info"
               startIcon={<AddIcon />}
               onClick={() => openAdd()}
-              sx={{ borderRadius: 999, fontWeight: 700, px: 2.5 }}
+              sx={{ borderRadius: 1.5, fontWeight: 700, px: 2.5, boxShadow: 'none' }}
             >
               Add device
             </Button>
           </Stack>
         </Stack>
 
-        {/* Stat cards */}
+        {/* Clean Stat Cards */}
         <Box
           sx={{
             display: 'grid',
@@ -236,13 +249,13 @@ export default function AdminDevices() {
                 }}
                 sx={{
                   cursor: 'pointer',
-                  p: 2,
+                  p: 2.5,
                   borderRadius: 2,
                   bgcolor: 'background.paper',
                   border: '1px solid',
                   borderColor: active ? 'info.main' : 'divider',
-                  transition: 'border-color 0.15s ease',
-                  '&:hover': { borderColor: 'info.main' },
+                  transition: 'all 0.2s ease',
+                  '&:hover': { borderColor: 'info.main', transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' },
                 }}
               >
                 <Typography
@@ -272,6 +285,79 @@ export default function AdminDevices() {
           })}
         </Box>
 
+        {/* Clean & Professional Breakdown Table */}
+        {modelBreakdown.length > 0 && (
+          <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 3 }}>
+            <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+              <Box sx={{ px: 3, py: 2.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+                <Typography sx={{ fontWeight: 800, fontSize: '1rem' }}>
+                  Model Sales Breakdown
+                </Typography>
+                <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mt: 0.5 }}>
+                  Detailed view of how many units of each model have been sold versus what is still in stock.
+                </Typography>
+              </Box>
+              
+              <Box sx={{ overflowX: 'auto' }}>
+                <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
+                  <thead>
+                    <tr>
+                      {['Device Model', 'Total Units', 'Sold', 'Available', 'Progress'].map((h, i) => (
+                        <Box 
+                          component="th" 
+                          key={h} 
+                          sx={{ 
+                            fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', 
+                            color: 'text.secondary', textAlign: i === 0 ? 'left' : 'center', py: 1.5, px: 3, 
+                            borderBottom: '1px solid', borderColor: 'divider' 
+                          }}
+                        >
+                          {h}
+                        </Box>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {modelBreakdown.map((model, i) => {
+                      const soldPercent = model.total > 0 ? (model.sold / model.total) * 100 : 0
+                      
+                      const barColor = soldPercent > 85 ? 'error.main' : soldPercent > 60 ? 'warning.main' : 'info.main'
+                      const textColor = soldPercent > 85 ? 'error.main' : 'text.primary'
+
+                      return (
+                        <tr key={i} style={{ transition: 'background-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                          <Box component="td" sx={{ py: 2, px: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
+                            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem' }}>{model.name}</Typography>
+                          </Box>
+                          <Box component="td" sx={{ py: 2, px: 3, borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                            <Typography sx={{ fontSize: '0.9rem', fontWeight: 500 }}>{model.total}</Typography>
+                          </Box>
+                          <Box component="td" sx={{ py: 2, px: 3, borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                            <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: textColor }}>{model.sold}</Typography>
+                          </Box>
+                          <Box component="td" sx={{ py: 2, px: 3, borderBottom: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                            <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary', fontWeight: 600 }}>{model.available}</Typography>
+                          </Box>
+                          <Box component="td" sx={{ py: 2, px: 3, borderBottom: '1px solid', borderColor: 'divider', width: '30%' }}>
+                            <Stack direction="row" alignItems="center" spacing={1.5}>
+                              <Box sx={{ width: '100%', height: 6, bgcolor: 'action.hover', borderRadius: 999, overflow: 'hidden' }}>
+                                <Box sx={{ width: `${soldPercent}%`, height: '100%', bgcolor: barColor, borderRadius: 999 }} />
+                              </Box>
+                              <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: 'text.secondary', minWidth: 35, textAlign: 'right' }}>
+                                {Math.round(soldPercent)}%
+                              </Typography>
+                            </Stack>
+                          </Box>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Filters */}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
           <Box
@@ -282,7 +368,7 @@ export default function AdminDevices() {
               gap: 1,
               px: 2,
               py: 1,
-              borderRadius: 999,
+              borderRadius: 1.5,
               border: '1px solid',
               borderColor: 'divider',
               bgcolor: 'background.paper',
@@ -305,7 +391,7 @@ export default function AdminDevices() {
               setStatusFilter(e.target.value === 'all' ? '' : e.target.value)
               setPage(1)
             }}
-            sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { borderRadius: 999 } }}
+            sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
           >
             <MenuItem value="all">All statuses</MenuItem>
             {DEVICE_STATUS_LIST.map((s) => (
@@ -316,7 +402,7 @@ export default function AdminDevices() {
           </TextField>
         </Stack>
 
-        {/* Table */}
+        {/* Main Table (Individual Devices) */}
         <Box
           sx={{
             borderRadius: 2,
@@ -382,7 +468,7 @@ export default function AdminDevices() {
               {devices.map((d, i) => (
                 <Box
                   key={d._id}
-                  onClick={() => navigate(`/admin/devices/${d._id}`)}
+                  onClick={() => navigate(`${base}/devices/${d._id}`)}
                   sx={{
                     display: 'grid',
                     gridTemplateColumns: GRID,
@@ -394,6 +480,7 @@ export default function AdminDevices() {
                     borderBottom: i === devices.length - 1 ? 'none' : '1px solid',
                     borderColor: 'divider',
                     '&:hover': { bgcolor: 'action.hover' },
+                    transition: 'background-color 0.2s ease',
                   }}
                 >
                   <Box sx={{ minWidth: 0 }}>
@@ -481,7 +568,7 @@ export default function AdminDevices() {
             direction="row"
             alignItems="center"
             justifyContent="space-between"
-            sx={{ mt: 2 }}
+            sx={{ mt: 3 }}
           >
             <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary' }}>
               {total} {total === 1 ? 'device' : 'devices'} · page {page} of {pages}
@@ -491,7 +578,7 @@ export default function AdminDevices() {
                 size="small"
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
-                sx={{ textTransform: 'none' }}
+                sx={{ textTransform: 'none', fontWeight: 600 }}
               >
                 Previous
               </Button>
@@ -499,7 +586,7 @@ export default function AdminDevices() {
                 size="small"
                 disabled={page >= pages}
                 onClick={() => setPage((p) => p + 1)}
-                sx={{ textTransform: 'none' }}
+                sx={{ textTransform: 'none', fontWeight: 600 }}
               >
                 Next
               </Button>
@@ -517,7 +604,7 @@ export default function AdminDevices() {
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
         <DialogTitle sx={{ fontWeight: 700 }}>Add device</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField
               label="IMEI"
@@ -550,11 +637,11 @@ export default function AdminDevices() {
             />
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
             onClick={() => setAddOpen(false)}
             disabled={adding}
-            sx={{ textTransform: 'none', color: 'text.secondary' }}
+            sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600 }}
           >
             Cancel
           </Button>
@@ -563,7 +650,7 @@ export default function AdminDevices() {
             disabled={adding}
             variant="contained"
             color="info"
-            sx={{ textTransform: 'none', borderRadius: 999, fontWeight: 700, px: 3 }}
+            sx={{ textTransform: 'none', borderRadius: 1.5, fontWeight: 700, px: 3 }}
           >
             {adding ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Add device'}
           </Button>
@@ -589,7 +676,7 @@ export default function AdminDevices() {
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 2 }}>
             Looking up a device never changes its status.
           </Typography>
@@ -656,8 +743,8 @@ export default function AdminDevices() {
                     size="small"
                     variant="outlined"
                     color="info"
-                    onClick={() => navigate(`/admin/boxes/${scanResult.box._id}`)}
-                    sx={{ textTransform: 'none', borderRadius: 999 }}
+                    onClick={() => navigate(`${base}/boxes/${scanResult.box._id}`)}
+                    sx={{ textTransform: 'none', borderRadius: 1.5 }}
                   >
                     Open {scanResult.box.type === 'carton' ? 'carton' : 'box'}
                   </Button>
@@ -667,8 +754,8 @@ export default function AdminDevices() {
                     size="small"
                     variant="outlined"
                     color="info"
-                    onClick={() => navigate(`/admin/devices/${scanResult.device._id}`)}
-                    sx={{ textTransform: 'none', borderRadius: 999 }}
+                    onClick={() => navigate(`${base}/devices/${scanResult.device._id}`)}
+                    sx={{ textTransform: 'none', borderRadius: 1.5 }}
                   >
                     View device
                   </Button>
@@ -683,7 +770,7 @@ export default function AdminDevices() {
                       closeScan()
                       openAdd(imei)
                     }}
-                    sx={{ textTransform: 'none', borderRadius: 999 }}
+                    sx={{ textTransform: 'none', borderRadius: 1.5 }}
                   >
                     Add to inventory
                   </Button>
@@ -709,6 +796,6 @@ export default function AdminDevices() {
           {toast?.text}
         </Alert>
       </Snackbar>
-    </AdminLayout>
+    </Layout>
   )
 }

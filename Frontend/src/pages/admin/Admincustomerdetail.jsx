@@ -2,21 +2,24 @@ import { useState, useEffect, useCallback } from 'react'
 import { Navigate, Link as RouterLink, useParams, useNavigate } from 'react-router-dom'
 import {
   Box, Typography, Stack, Button, TextField, MenuItem, Alert, CircularProgress, Tabs, Tab,
-  Dialog, DialogTitle, DialogContent, DialogActions, Chip, Snackbar,
+  Dialog, DialogTitle, DialogContent, DialogActions, Chip, Snackbar, Avatar, Card, CardContent
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined'
+import ReceiptIcon from '@mui/icons-material/Receipt'
+import DevicesIcon from '@mui/icons-material/Devices'
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import AdminLayout from './AdminLayout.jsx'
 import DeviceStatusChip from '../admin/DeviceStatusChip.jsx'
 import { money, fmtDate, labelOf, PAYMENT_METHODS, WARRANTY_LABELS } from '../../components/admin/format.js'
 import { isAdminLoggedIn } from '../../lib/adminAuth.js'
-import { getCustomer, recordPayment, voidPayment, deleteCustomer } from '../../services/api.js'
+import { getCustomer, recordPayment, voidPayment, deleteCustomer, getProducts, saveCustomerPrices } from '../../services/api.js'
 
-const card = { p: 3, borderRadius: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }
-const th = { fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'text.secondary', textAlign: 'left', py: 1.25, px: 1.5, whiteSpace: 'nowrap' }
-const td = { fontSize: '0.84rem', py: 1.25, px: 1.5, borderTop: '1px solid', borderColor: 'divider', verticalAlign: 'top' }
+const th = { fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'text.secondary', textAlign: 'left', py: 1.5, px: 2, whiteSpace: 'nowrap' }
+const td = { fontSize: '0.84rem', py: 1.5, px: 2, borderTop: '1px solid', borderColor: 'divider', verticalAlign: 'top' }
 
 const PAY_STYLE = {
   paid: { label: 'Paid', bg: 'rgba(16,185,129,0.12)', color: '#0F8A5F' },
@@ -26,12 +29,29 @@ const PAY_STYLE = {
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-function Stat({ label, value, tone }) {
+// Modernized Stat Component
+function Stat({ label, value, tone, icon, highlight }) {
   return (
-    <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'text.secondary' }}>{label}</Typography>
-      <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.6rem', lineHeight: 1.2, color: tone || 'text.primary' }}>{value}</Typography>
-    </Box>
+    <Card elevation={0} sx={{ 
+      border: '1px solid', 
+      borderColor: highlight ? 'error.light' : 'divider', 
+      bgcolor: highlight ? 'error.50' : 'background.paper',
+      borderRadius: 2,
+      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }
+    }}>
+      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'text.secondary' }}>
+            {label}
+          </Typography>
+          {icon && <Box sx={{ color: highlight ? 'error.main' : 'text.disabled', display: 'flex' }}>{icon}</Box>}
+        </Stack>
+        <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.8rem', lineHeight: 1, color: tone || 'text.primary' }}>
+          {value}
+        </Typography>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -43,6 +63,12 @@ export default function AdminCustomerDetail() {
   const [error, setError] = useState('')
   const [tab, setTab] = useState(0)
   const [toast, setToast] = useState(null)
+
+  const [ratesOpen, setRatesOpen] = useState(false)
+  const [products, setProducts] = useState([])
+  const [rates, setRates] = useState({})
+  const [savingRates, setSavingRates] = useState(false)
+  const [ratesError, setRatesError] = useState('')
 
   const [payOpen, setPayOpen] = useState(false)
   const [pay, setPay] = useState({ amount: '', method: 'cash', date: today(), note: '', saleId: '' })
@@ -66,6 +92,10 @@ export default function AdminCustomerDetail() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    getProducts().then(setProducts).catch(() => {})
+  }, [])
 
   if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
 
@@ -101,6 +131,35 @@ export default function AdminCustomerDetail() {
     }
   }
 
+  const openRates = () => {
+    const next = {}
+    ;(data?.prices || []).forEach((p) => { next[String(p.product)] = String(p.price) })
+    setRates(next)
+    setRatesError('')
+    setRatesOpen(true)
+  }
+
+  const saveRates = async () => {
+    setSavingRates(true)
+    setRatesError('')
+    try {
+      const payload = products
+        .filter((p) => { const v = rates[String(p._id)]; return v !== undefined && String(v).trim() !== '' })
+        .map((p) => ({ productId: p._id, price: Number(rates[String(p._id)]) }))
+      if (payload.some((r) => !Number.isFinite(r.price) || r.price < 0)) {
+        throw new Error('Every rate must be a number of 0 or more.')
+      }
+      await saveCustomerPrices(id, payload)
+      setRatesOpen(false)
+      setToast({ severity: 'success', text: 'Customer rates saved.' })
+      await load()
+    } catch (err) {
+      setRatesError(err?.message || 'Could not save the rates.')
+    } finally {
+      setSavingRates(false)
+    }
+  }
+
   const submitVoid = async () => {
     try {
       await voidPayment(voiding._id, voidReason)
@@ -129,75 +188,120 @@ export default function AdminCustomerDetail() {
 
   return (
     <AdminLayout title="Customer">
-      <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
-        <Button component={RouterLink} to="/admin/customers" startIcon={<ArrowBackIcon />} sx={{ textTransform: 'none', color: 'text.secondary', mb: 2 }}>
+      <Box sx={{ maxWidth: 1200, mx: 'auto', pb: 4 }}>
+        <Button component={RouterLink} to="/admin/customers" startIcon={<ArrowBackIcon />} sx={{ textTransform: 'none', color: 'text.secondary', mb: 2, fontWeight: 600 }}>
           Back to customers
         </Button>
 
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress size={32} sx={{ color: 'info.main' }} /></Box>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress size={32} sx={{ color: 'info.main' }} /></Box>
         ) : error ? (
           <Alert severity="error" sx={{ borderRadius: 2 }}>{error}</Alert>
         ) : (
           <Stack spacing={3}>
-            <Box sx={card}>
-              <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
-                <Box>
-                  <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.9rem', lineHeight: 1.1 }}>{c.name}</Typography>
-                  <Typography sx={{ fontSize: '0.88rem', color: 'text.secondary', mt: 0.5 }}>
-                    {[c.phone, c.city, c.address].filter(Boolean).join(' · ')}
-                  </Typography>
-                </Box>
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Button onClick={() => openPay()} variant="contained" color="info" startIcon={<PaymentsOutlinedIcon />} sx={{ borderRadius: 999, fontWeight: 700, px: 2.5 }}>
-                    Record payment
-                  </Button>
-                  <Button component={RouterLink} to={`/admin/customers/${id}/statement`} variant="outlined" color="info" startIcon={<ReceiptLongOutlinedIcon />} sx={{ borderRadius: 999, fontWeight: 700, px: 2.5 }}>
-                    Statement
-                  </Button>
-                  <Button component={RouterLink} to={`/admin/handover?from=${id}`} variant="outlined" color="info" startIcon={<SwapHorizIcon />} sx={{ borderRadius: 999, fontWeight: 700, px: 2.5 }}>
-                    Hand over devices
-                  </Button>
+            
+            {/* HEADER SECTION */}
+            <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+              <CardContent sx={{ p: { xs: 2.5, md: 3 }, '&:last-child': { pb: { xs: 2.5, md: 3 } } }}>
+                <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', lg: 'center' }} spacing={3}>
+                  
+                  {/* Profile Info */}
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Avatar sx={{ width: 60, height: 60, bgcolor: 'info.main', fontSize: '1.5rem', fontWeight: 700 }}>
+                      {c.name.charAt(0).toUpperCase()}
+                    </Avatar>
+                    <Box>
+                      <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.2rem' }, lineHeight: 1, color: 'text.primary' }}>
+                        {c.name}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary', mt: 0.5, fontWeight: 500 }}>
+                        {[c.phone, c.city, c.address].filter(Boolean).join(' · ')}
+                      </Typography>
+                    </Box>
+                  </Stack>
+
+                  {/* Action Buttons */}
+                  <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap sx={{ width: { xs: '100%', lg: 'auto' } }}>
+                    <Button 
+                      onClick={() => openPay()} 
+                      variant="contained" 
+                      color="info" 
+                      startIcon={<PaymentsOutlinedIcon />} 
+                      sx={{ borderRadius: 1.5, fontWeight: 700, px: 3, py: 1, flex: { xs: 1, sm: 'none' }, boxShadow: 'none' }}
+                    >
+                      Record payment
+                    </Button>
+                    <Button onClick={openRates} variant="outlined" color="info" startIcon={<TuneOutlinedIcon />} sx={{ borderRadius: 1.5, fontWeight: 600, px: 2.5 }}>
+                      Rates
+                    </Button>
+                    <Button component={RouterLink} to={`/admin/customers/${id}/statement`} variant="outlined" color="info" startIcon={<ReceiptLongOutlinedIcon />} sx={{ borderRadius: 1.5, fontWeight: 600, px: 2.5 }}>
+                      Statement
+                    </Button>
+                    <Button component={RouterLink} to={`/admin/handover?from=${id}`} variant="outlined" color="info" startIcon={<SwapHorizIcon />} sx={{ borderRadius: 1.5, fontWeight: 600, px: 2.5 }}>
+                      Handover
+                    </Button>
+                  </Stack>
                 </Stack>
-              </Stack>
-            </Box>
+              </CardContent>
+            </Card>
 
+            {/* STATS GRID */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2 }}>
-              <Stat label="Invoices" value={st.purchases || 0} />
-              <Stat label="Devices bought" value={st.devices || 0} />
-              <Stat label="Billed" value={money(st.spent)} />
-              <Stat label="Paid" value={money(st.paid)} tone="#0F8A5F" />
-              <Stat label={st.balance < 0 ? 'Credit' : 'Balance due'} value={balanceText} tone={balanceTone} />
+              <Stat label="Invoices" value={st.purchases || 0} icon={<ReceiptIcon />} />
+              <Stat label="Devices bought" value={st.devices || 0} icon={<DevicesIcon />} />
+              <Stat label="Billed" value={money(st.spent)} icon={<AccountBalanceWalletIcon />} />
+              <Stat label="Paid" value={money(st.paid)} tone="#0F8A5F" icon={<PaymentsOutlinedIcon />} />
+              <Stat 
+                label={st.balance < 0 ? 'Credit' : 'Balance due'} 
+                value={balanceText} 
+                tone={balanceTone} 
+                icon={<AccountBalanceWalletIcon />} 
+                highlight={st.balance > 0} 
+              />
             </Box>
 
+            {/* RESALE CHAIN */}
             {(data.passedOn.length > 0 || data.receivedFrom.length > 0) && (
-              <Box sx={card}>
-                <Typography sx={{ fontWeight: 700, mb: 1.5 }}>Resale chain</Typography>
+              <Box sx={{ p: 2.5, borderRadius: 2, bgcolor: 'action.hover', border: '1px dashed', borderColor: 'divider' }}>
+                <Typography sx={{ fontWeight: 700, mb: 1.5, fontSize: '0.95rem' }}>Resale chain</Typography>
                 <Stack spacing={1}>
                   {data.receivedFrom.map((g) => (
-                    <Typography key={`in-${g.customer._id}`} sx={{ fontSize: '0.88rem' }}>
-                      Received <b>{g.count}</b> device{g.count === 1 ? '' : 's'} from{' '}
-                      <Box component={RouterLink} to={`/admin/customers/${g.customer._id}`} sx={{ color: 'info.main', fontWeight: 600 }}>{g.customer.name}</Box>{' '}
-                      <Box component="span" sx={{ color: 'text.secondary' }}>· last {fmtDate(g.lastDate)}</Box>
+                    <Typography key={`in-${g.customer._id}`} sx={{ fontSize: '0.88rem', color: 'text.secondary' }}>
+                      Received <b style={{ color: '#111' }}>{g.count}</b> device{g.count === 1 ? '' : 's'} from{' '}
+                      <Box component={RouterLink} to={`/admin/customers/${g.customer._id}`} sx={{ color: 'info.main', fontWeight: 600, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>{g.customer.name}</Box>{' '}
+                      <Box component="span" sx={{ color: 'text.disabled' }}>· last {fmtDate(g.lastDate)}</Box>
                     </Typography>
                   ))}
                   {data.passedOn.map((g) => (
-                    <Typography key={`out-${g.customer._id}`} sx={{ fontSize: '0.88rem' }}>
-                      Passed <b>{g.count}</b> device{g.count === 1 ? '' : 's'} on to{' '}
-                      <Box component={RouterLink} to={`/admin/customers/${g.customer._id}`} sx={{ color: 'info.main', fontWeight: 600 }}>{g.customer.name}</Box>{' '}
-                      <Box component="span" sx={{ color: 'text.secondary' }}>· last {fmtDate(g.lastDate)}</Box>
+                    <Typography key={`out-${g.customer._id}`} sx={{ fontSize: '0.88rem', color: 'text.secondary' }}>
+                      Passed <b style={{ color: '#111' }}>{g.count}</b> device{g.count === 1 ? '' : 's'} on to{' '}
+                      <Box component={RouterLink} to={`/admin/customers/${g.customer._id}`} sx={{ color: 'info.main', fontWeight: 600, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>{g.customer.name}</Box>{' '}
+                      <Box component="span" sx={{ color: 'text.disabled' }}>· last {fmtDate(g.lastDate)}</Box>
                     </Typography>
                   ))}
                 </Stack>
               </Box>
             )}
 
-            <Box sx={{ ...card, p: 0, overflow: 'hidden' }}>
-              <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" sx={{ px: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Tab label={`Invoices (${data.sales.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-                <Tab label={`Payments (${data.payments.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-                <Tab label={`Devices (${data.devices.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-              </Tabs>
+            {/* TABS & TABLES */}
+            <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+                <Tabs 
+                  value={tab} 
+                  onChange={(_, v) => setTab(v)} 
+                  variant="scrollable" 
+                  sx={{ 
+                    px: 2, pt: 1,
+                    '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, fontSize: '0.95rem', minWidth: 120 },
+                    '& .Mui-selected': { color: 'info.main' },
+                    '& .MuiTabs-indicator': { bgcolor: 'info.main', height: 3, borderRadius: '3px 3px 0 0' }
+                  }}
+                >
+                  <Tab label={`Invoices (${data.sales.length})`} />
+                  <Tab label={`Payments (${data.payments.length})`} />
+                  <Tab label={`Devices (${data.devices.length})`} />
+                </Tabs>
+              </Box>
 
               <Box sx={{ overflowX: 'auto' }}>
                 {tab === 0 && (
@@ -208,18 +312,18 @@ export default function AdminCustomerDetail() {
                         {data.sales.map((s) => {
                           const ps = PAY_STYLE[s.paymentStatus] || PAY_STYLE.paid
                           return (
-                            <tr key={s._id}>
+                            <tr key={s._id} style={{ transition: 'background-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                               <Box component="td" sx={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>
-                                <Box component={RouterLink} to={`/admin/sales/${s._id}`} sx={{ color: 'info.main' }}>{s.invoiceNumber}</Box>
+                                <Box component={RouterLink} to={`/admin/sales/${s._id}`} sx={{ color: 'info.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>{s.invoiceNumber}</Box>
                               </Box>
                               <Box component="td" sx={td}>{fmtDate(s.saleDate)}</Box>
                               <Box component="td" sx={td}>{s.itemCount}</Box>
-                              <Box component="td" sx={td}>{money(s.total)}</Box>
+                              <Box component="td" sx={{ ...td, fontWeight: 600 }}>{money(s.total)}</Box>
                               <Box component="td" sx={td}>{money(s.paid)}</Box>
                               <Box component="td" sx={{ ...td, fontWeight: 700, color: s.balance > 0 ? '#C81E1E' : 'text.primary' }}>{money(s.balance)}</Box>
-                              <Box component="td" sx={td}><Chip label={ps.label} size="small" sx={{ bgcolor: ps.bg, color: ps.color, fontWeight: 700, fontSize: '0.66rem', height: 20, borderRadius: 999 }} /></Box>
+                              <Box component="td" sx={td}><Chip label={ps.label} size="small" sx={{ bgcolor: ps.bg, color: ps.color, fontWeight: 700, fontSize: '0.68rem', height: 22, borderRadius: 999 }} /></Box>
                               <Box component="td" sx={td}>
-                                {s.balance > 0 && <Button size="small" onClick={() => openPay(s._id)} sx={{ textTransform: 'none', fontWeight: 700 }}>Pay</Button>}
+                                {s.balance > 0 && <Button size="small" variant="outlined" onClick={() => openPay(s._id)} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, py: 0.5 }}>Pay</Button>}
                               </Box>
                             </tr>
                           )
@@ -242,7 +346,7 @@ export default function AdminCustomerDetail() {
                             <Box component="td" sx={td}>{labelOf(PAYMENT_METHODS, p.method)}</Box>
                             <Box component="td" sx={td}>
                               {p.voided ? <i>Voided{p.voidReason ? ` · ${p.voidReason}` : ''}</i> : (p.appliedTo?.join(', ') || 'On account')}
-                              {p.note && !p.voided ? <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary' }}>{p.note}</Typography> : null}
+                              {p.note && !p.voided ? <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary', mt: 0.5 }}>{p.note}</Typography> : null}
                             </Box>
                             <Box component="td" sx={td}>{p.receivedByName || '—'}</Box>
                             <Box component="td" sx={td}>
@@ -263,7 +367,7 @@ export default function AdminCustomerDetail() {
                         {data.devices.map((d) => (
                           <tr key={`${d._id}-${d.source}-${d.date}`}>
                             <Box component="td" sx={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>
-                              <Box component={RouterLink} to={`/admin/devices/${d._id}`} sx={{ color: 'info.main' }}>{d.imei}</Box>
+                              <Box component={RouterLink} to={`/admin/devices/${d._id}`} sx={{ color: 'info.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>{d.imei}</Box>
                             </Box>
                             <Box component="td" sx={td}>{d.productName || '—'}</Box>
                             <Box component="td" sx={{ ...td, fontFamily: 'monospace' }}>{d.boxCode || '—'}</Box>
@@ -279,20 +383,60 @@ export default function AdminCustomerDetail() {
                   )
                 )}
               </Box>
-            </Box>
+            </Card>
 
-            <Box>
-              <Button onClick={handleDelete} sx={{ textTransform: 'none', color: '#C81E1E', fontWeight: 600 }}>Delete customer</Button>
+            {/* DELETE CUSTOMER */}
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
+              <Button onClick={handleDelete} sx={{ textTransform: 'none', color: 'error.main', fontWeight: 600, borderRadius: 1.5 }}>Delete customer</Button>
               <Typography component="span" sx={{ fontSize: '0.78rem', color: 'text.secondary', ml: 1 }}>Only works when they have no invoices, payments or devices.</Typography>
             </Box>
           </Stack>
         )}
       </Box>
 
-      <Dialog open={payOpen} onClose={() => !paying && setPayOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700 }}>Record payment</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
+      {/* RATES DIALOG */}
+      <Dialog open={ratesOpen} onClose={() => !savingRates && setRatesOpen(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 2 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Rates for {c?.name}</DialogTitle>
+        <DialogContent dividers>
+          <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', mb: 2.5 }}>
+            One rate per device type. The salesperson never sees these values; they are applied on the server when a sale is submitted. Leave a field blank if this customer has no rate for that device type.
+          </Typography>
+          {ratesError && <Alert severity="error" sx={{ mb: 2 }}>{ratesError}</Alert>}
+          <Stack spacing={2}>
+            {products.length === 0 ? (
+              <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>No product types exist yet. Create products first.</Typography>
+            ) : products.map((product) => (
+              <Stack key={product._id} direction="row" alignItems="center" spacing={2}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>{product.name}</Typography>
+                  <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary' }}>{product.category}</Typography>
+                </Box>
+                <TextField
+                  size="small"
+                  type="number"
+                  label="Rate (Rs.)"
+                  value={rates[String(product._id)] ?? ''}
+                  onChange={(e) => setRates((prev) => ({ ...prev, [String(product._id)]: e.target.value }))}
+                  inputProps={{ min: 0, style: { textAlign: 'right' } }}
+                  sx={{ width: 150 }}
+                />
+              </Stack>
+            ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setRatesOpen(false)} disabled={savingRates} sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600 }}>Cancel</Button>
+          <Button onClick={saveRates} disabled={savingRates || products.length === 0} variant="contained" color="info" sx={{ borderRadius: 1.5, fontWeight: 700, px: 3 }}>
+            {savingRates ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save rates'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* PAYMENT DIALOG */}
+      <Dialog open={payOpen} onClose={() => !paying && setPayOpen(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 2 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Record payment</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2.5} sx={{ pt: 1 }}>
             {payError && <Alert severity="error">{payError}</Alert>}
             <TextField label="Amount (Rs.)" type="number" size="small" autoFocus value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} helperText={st.balance > 0 ? `Total balance due: ${money(st.balance)}` : undefined} />
             <TextField select label="Apply to" size="small" value={pay.saleId} onChange={(e) => {
@@ -311,25 +455,26 @@ export default function AdminCustomerDetail() {
             <TextField label="Note (optional)" size="small" value={pay.note} onChange={(e) => setPay({ ...pay, note: e.target.value })} />
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setPayOpen(false)} disabled={paying} sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button onClick={submitPay} disabled={paying || !(Number(pay.amount) > 0)} variant="contained" color="info" sx={{ borderRadius: 999, fontWeight: 700, px: 3 }}>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setPayOpen(false)} disabled={paying} sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600 }}>Cancel</Button>
+          <Button onClick={submitPay} disabled={paying || !(Number(pay.amount) > 0)} variant="contained" color="info" sx={{ borderRadius: 1.5, fontWeight: 700, px: 3 }}>
             {paying ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save payment'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!voiding} onClose={() => setVoiding(null)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700 }}>Void {voiding?.reference}?</DialogTitle>
-        <DialogContent>
+      {/* VOID DIALOG */}
+      <Dialog open={!!voiding} onClose={() => setVoiding(null)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 2 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Void {voiding?.reference}?</DialogTitle>
+        <DialogContent dividers>
           <Typography sx={{ fontSize: '0.88rem', mb: 2 }}>
             The {money(voiding?.amount)} payment stays in the ledger as voided, and the invoices it covered owe that money again.
           </Typography>
           <TextField label="Reason (optional)" size="small" fullWidth value={voidReason} onChange={(e) => setVoidReason(e.target.value)} />
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setVoiding(null)} sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button onClick={submitVoid} color="error" variant="contained" sx={{ borderRadius: 999, fontWeight: 700, px: 3 }}>Void payment</Button>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setVoiding(null)} sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600 }}>Cancel</Button>
+          <Button onClick={submitVoid} color="error" variant="contained" sx={{ borderRadius: 1.5, fontWeight: 700, px: 3 }}>Void payment</Button>
         </DialogActions>
       </Dialog>
 
@@ -341,5 +486,5 @@ export default function AdminCustomerDetail() {
 }
 
 function Empty({ text }) {
-  return <Typography sx={{ textAlign: 'center', color: 'text.secondary', fontSize: '0.88rem', py: 6, px: 3 }}>{text}</Typography>
+  return <Typography sx={{ textAlign: 'center', color: 'text.secondary', fontSize: '0.9rem', py: 8, px: 3, fontWeight: 500 }}>{text}</Typography>
 }

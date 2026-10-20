@@ -6,8 +6,7 @@ import {
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
-import AdminLayout from './AdminLayout.jsx'
-import { isAdminLoggedIn } from '../../lib/adminAuth.js'
+import { ADMIN_SHELL } from '../../lib/stockShell.js'
 import { getReturnCases } from '../../services/api.js'
 import { fmtDate } from '../../components/admin/format.js'
 
@@ -17,7 +16,8 @@ const statusTone = {
   cancelled: { label: 'Cancelled', color: 'default' },
 }
 
-export default function AdminReturns() {
+export default function AdminReturns({ shell = ADMIN_SHELL }) {
+  const { Layout, base, isLoggedIn, loginTo } = shell
   const [cases, setCases] = useState([])
   const [total, setTotal] = useState(0)
   const [pages, setPages] = useState(1)
@@ -50,10 +50,10 @@ export default function AdminReturns() {
     return () => { alive = false }
   }, [status, query, page])
 
-  if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
+  if (!isLoggedIn()) return <Navigate to={loginTo} replace />
 
   return (
-    <AdminLayout title="Returns & warranty">
+    <Layout title="Returns & warranty">
       <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between" spacing={2} sx={{ mb: 3 }}>
           <Box>
@@ -64,7 +64,7 @@ export default function AdminReturns() {
               {openCount} open {openCount === 1 ? 'case' : 'cases'} awaiting resolution
             </Typography>
           </Box>
-          <Button component={RouterLink} to="/admin/returns/new" variant="contained" color="info" startIcon={<AddIcon />} sx={{ borderRadius: 1, fontWeight: 700 }}>
+          <Button component={RouterLink} to={`${base}/returns/new`} variant="contained" color="info" startIcon={<AddIcon />} sx={{ borderRadius: 1, fontWeight: 700 }}>
             Open a case
           </Button>
         </Stack>
@@ -99,7 +99,7 @@ export default function AdminReturns() {
               {cases.map((item) => {
                 const tone = statusTone[item.status] || statusTone.open
                 return (
-                  <Box key={item._id} component={RouterLink} to={`/admin/returns/${item._id}`} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', md: '1fr 1.2fr 1fr 1.4fr 1fr 120px' }, gap: 2, alignItems: 'center', px: 2.5, py: 1.75, borderTop: '1px solid', borderColor: 'divider', textDecoration: 'none', color: 'inherit', '&:hover': { bgcolor: 'action.hover' } }}>
+                  <Box key={item._id} component={RouterLink} to={`${base}/returns/${item._id}`} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', md: '1fr 1.2fr 1fr 1.4fr 1fr 120px' }, gap: 2, alignItems: 'center', px: 2.5, py: 1.75, borderTop: '1px solid', borderColor: 'divider', textDecoration: 'none', color: 'inherit', '&:hover': { bgcolor: 'action.hover' } }}>
                     <Box>
                       <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'info.main' }}>{item.caseNumber}</Typography>
                       <Typography sx={{ display: { xs: 'block', md: 'none' }, fontSize: '0.76rem', color: 'text.secondary' }}>{item.imei} · {item.invoiceNumber}</Typography>
@@ -117,6 +117,6 @@ export default function AdminReturns() {
         </Box>
         {!loading && pages > 1 && <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 2 }}><Typography sx={{ color: 'text.secondary', fontSize: '0.82rem' }}>{total} cases</Typography><Pagination count={pages} page={page} onChange={(_, value) => setPage(value)} size="small" /></Stack>}
       </Box>
-    </AdminLayout>
+    </Layout>
   )
 }

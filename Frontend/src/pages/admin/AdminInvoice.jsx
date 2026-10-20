@@ -27,24 +27,65 @@ const FONT_CSS = `@import url('https://fonts.googleapis.com/css2?family=Inter:wg
 const PRINT_CSS = `
 @media print {
   .no-print { display: none !important; }
-  html, body { background: #fff !important; }
-  .invoice-page { background: #fff !important; padding: 6mm 8mm !important; min-height: 0 !important; }
-  .invoice-sheet { box-sizing: border-box !important; display: block !important; width: 100% !important; min-height: 0 !important; height: auto !important; box-shadow: none !important; border: none !important; border-radius: 0 !important; margin: 0 !important; max-width: none !important; padding: 0 !important; position: relative !important; }
-  .invoice-banner { margin: 0 0 2mm !important; padding-top: 3.5mm !important; padding-bottom: 3.5mm !important; position: relative !important; z-index: 1 !important; }
-  .invoice-body { padding-top: 1mm !important; padding-bottom: 0 !important; min-height: 0 !important; position: relative !important; z-index: 1 !important; }
-  .invoice-table td { padding-top: 1.8mm !important; padding-bottom: 1.8mm !important; }
+  html, body { background: #fff !important; margin: 0; padding: 0; }
+  
+  /* Page margin for ALL pages */
+  @page { 
+    size: A4; 
+    margin: 12mm; 
+  }
+  
+  /* Reset the page container to fill the print area */
+  .invoice-page { 
+    background: #fff !important; 
+    padding: 0 !important; 
+    min-height: 0 !important; 
+    margin: 0 !important;
+  }
+  
+  /* Remove shadows and borders from the main sheet */
+  .invoice-sheet { 
+    box-sizing: border-box !important; 
+    display: block !important; 
+    width: 100% !important; 
+    box-shadow: none !important; 
+    border: none !important; 
+    border-radius: 0 !important; 
+    margin: 0 !important; 
+    padding: 0 !important; 
+    overflow: visible !important; 
+  }
+  
+  /* Style the banner as a neat inset box, avoiding cut-offs */
+  .invoice-banner { 
+    margin: 0 0 6mm 0 !important; 
+    padding: 6mm 8mm !important; 
+    border-radius: 4px !important; 
+    position: relative !important; 
+    z-index: 1 !important; 
+  }
+  
+  .invoice-body { 
+    padding: 0 !important; 
+    display: block !important; 
+    min-height: 0 !important; 
+    position: relative !important; 
+    z-index: 1 !important; 
+  }
+  
+  .invoice-table td { padding-top: 2mm !important; padding-bottom: 2mm !important; }
   .invoice-spacer { display: none !important; }
   .invoice-total-row { padding-top: 1px !important; padding-bottom: 1px !important; }
-  .invoice-table thead { display: table-header-group; }
-  .invoice-closing { break-inside: avoid; page-break-inside: avoid; }
-  .invoice-totals { break-inside: avoid; page-break-inside: avoid; }
-  .invoice-schedule-head { break-after: avoid; page-break-after: avoid; }
-  .invoice-schedule-row { break-inside: avoid; page-break-inside: avoid; }
-  .invoice-watermark { position: absolute !important; inset: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 0 !important; }
-  .invoice-watermark img { width: 55% !important; max-width: 120mm !important; opacity: 0.14 !important; }
-  @page { size: A4; margin: 0; }
+  
+  /* Prevent splits */
+  .invoice-table thead { display: table-header-group !important; }
+  tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+  .invoice-closing, .invoice-totals { page-break-inside: avoid !important; break-inside: avoid !important; }
+  .invoice-schedule-head { page-break-after: avoid !important; break-after: avoid !important; }
+  .invoice-schedule-row { page-break-inside: avoid !important; break-inside: avoid !important; }
+  
+  .invoice-watermark { display: none !important; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  tr { page-break-inside: avoid; }
 }
 `
 
@@ -56,9 +97,7 @@ const LINE = '#D9E4E5'
 const FONT = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
 const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace"
 
-// IMEIs stay inline in the item row up to this many; beyond it they move to the Device schedule.
 const INLINE_IMEI_LIMIT = 4
-// Up to this many devices: 4 columns with row numbers. Beyond it: 5 denser columns so long lists still fit one page.
 const SCHEDULE_COMFORT_LIMIT = 32
 
 const labelStyle = {
@@ -308,7 +347,6 @@ export default function AdminInvoice() {
             '& table, & th, & td': { fontFamily: FONT },
           }}
         >
-          {/* Watermark — centered logo behind all content */}
           <Box className="invoice-watermark" aria-hidden sx={{
             position: 'absolute',
             inset: 0,
@@ -331,7 +369,6 @@ export default function AdminInvoice() {
             />
           </Box>
 
-          {/* Header */}
           <Box className="invoice-banner" sx={{ position: 'relative', zIndex: 1, px: { xs: 2.5, sm: 4.5 }, py: 3, bgcolor: BRAND, color: '#fff', borderBottom: '6px solid #20BAC1' }}>
             <Stack direction="row" alignItems="flex-start" spacing={2} sx={{ width: '100%' }}>
               <Stack direction="row" spacing={1.75} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
@@ -353,7 +390,6 @@ export default function AdminInvoice() {
           </Box>
 
           <Box className="invoice-body" sx={{ position: 'relative', zIndex: 1, px: { xs: 2.5, sm: 4.5 }, pt: 3.5, pb: 4, display: 'flex', flexDirection: 'column', flex: 1 }}>
-            {/* Parties */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1.1fr 1fr' }, gap: { xs: 2.5, sm: 4 } }}>
               <Box sx={{ p: 1.5, border: `1px solid ${LINE}`, borderRadius: 1, bgcolor: '#F8FBFB' }}>
                 <Typography sx={labelStyle}>Billed to</Typography>
@@ -377,7 +413,6 @@ export default function AdminInvoice() {
               </Box>
             </Box>
 
-            {/* Summary strip */}
             <Box
               sx={{
                 mt: 2,
@@ -399,7 +434,6 @@ export default function AdminInvoice() {
               />
             </Box>
 
-            {/* Items */}
             <Box sx={{ mt: 2.5, overflowX: 'auto' }}>
               <Box component="table" className="invoice-table" sx={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
                 <thead><tr>
@@ -465,7 +499,6 @@ export default function AdminInvoice() {
               </Box>
             </Box>
 
-            {/* Notes + totals */}
             <Box className="invoice-totals" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr minmax(270px, 0.85fr)' }, gap: { xs: 3, sm: 5 }, alignItems: 'start', pt: 3 }}>
               <Box>
                 <Box sx={{ mb: 2 }}>
@@ -516,7 +549,6 @@ export default function AdminInvoice() {
               </Box>
             </Box>
 
-            {/* Device schedule — long IMEI lists live here, not in the item row */}
             {scheduleGroups.length > 0 && (
               <Box className="invoice-schedule" sx={{ mt: 2.5 }}>
                 {scheduleGroups.map((group) => (
@@ -527,7 +559,6 @@ export default function AdminInvoice() {
 
             <Box className="invoice-spacer" sx={{ flex: 1, minHeight: 12 }} />
 
-            {/* Closing: thank you, then warranty & terms as the very last section */}
             <Box className="invoice-closing" sx={{ mt: 2 }}>
               {shop.invoiceFooter && (
                 <Typography sx={{ textAlign: 'center', color: INK, fontSize: '0.86rem', fontWeight: 700, mb: 1.25 }}>
@@ -594,7 +625,6 @@ function wordsBelowThousand(n) {
   return parts.join(' ')
 }
 
-// Pakistani numbering: Crore / Lakh / Thousand
 function amountInWords(amount) {
   const value = Math.max(0, Number(amount) || 0)
   let rupees = Math.floor(value)

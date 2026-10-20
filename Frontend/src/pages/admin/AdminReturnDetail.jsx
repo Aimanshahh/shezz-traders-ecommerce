@@ -4,14 +4,14 @@ import {
   Alert, Box, Button, CircularProgress, Divider, MenuItem, Stack, TextField, Typography,
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import AdminLayout from './AdminLayout.jsx'
-import { isAdminLoggedIn } from '../../lib/adminAuth.js'
+import { ADMIN_SHELL } from '../../lib/stockShell.js'
 import { cancelReturnCase, getReturnCase, resolveReturnCase } from '../../services/api.js'
 import { fmtDate, money } from '../../components/admin/format.js'
 
 const card = { p: { xs: 2.5, md: 3 }, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1 }
 
-export default function AdminReturnDetail() {
+export default function AdminReturnDetail({ shell = ADMIN_SHELL }) {
+  const { Layout, base, isLoggedIn, loginTo, canResolveReturns, canSeeMoney } = shell
   const { id } = useParams()
   const [item, setItem] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -40,7 +40,7 @@ export default function AdminReturnDetail() {
     return () => { alive = false }
   }, [id])
 
-  if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
+  if (!isLoggedIn()) return <Navigate to={loginTo} replace />
 
   const doResolve = async () => {
     if (!resolution) return setError('Choose how this case was resolved.')
@@ -86,9 +86,9 @@ export default function AdminReturnDetail() {
     : 'No warranty record'
 
   return (
-    <AdminLayout title={item?.caseNumber || 'Return case'}>
+    <Layout title={item?.caseNumber || 'Return case'}>
       <Box sx={{ maxWidth: 1000, mx: 'auto' }}>
-        <Button component={RouterLink} to="/admin/returns" startIcon={<ArrowBackIcon />} sx={{ mb: 2, textTransform: 'none', color: 'text.secondary' }}>Back to cases</Button>
+        <Button component={RouterLink} to={`${base}/returns`} startIcon={<ArrowBackIcon />} sx={{ mb: 2, textTransform: 'none', color: 'text.secondary' }}>Back to cases</Button>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
         ) : error && !item ? (
@@ -108,7 +108,7 @@ export default function AdminReturnDetail() {
                 <Info label="Device" value={item.imei} mono />
                 <Info label="Product" value={item.productName} />
                 <Info label="Invoice" value={item.invoiceNumber} />
-                <Info label="Item value" value={money(item.itemValue)} />
+                {canSeeMoney && <Info label="Item value" value={money(item.itemValue)} />}
                 <Info label="Invoice customer" value={item.customer?.name} />
                 <Info label="Device holder" value={item.holderName} />
                 <Info label="Warranty" value={warrantyText} />
@@ -118,7 +118,14 @@ export default function AdminReturnDetail() {
             </Box>
 
             {error && <Alert severity="error">{error}</Alert>}
-            {item.status === 'open' ? (
+            {item.status === 'open' && !canResolveReturns ? (
+              <Box sx={card}>
+                <Typography sx={{ fontWeight: 700, fontSize: '1.05rem', mb: 1 }}>Waiting for a manager</Typography>
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.88rem' }}>
+                  The claim is logged and the device is held. An administrator settles it by refund, replacement or repair.
+                </Typography>
+              </Box>
+            ) : item.status === 'open' ? (
               <Box sx={card}>
                 <Typography sx={{ fontWeight: 700, fontSize: '1.05rem', mb: 2 }}>Resolve case</Typography>
                 <Stack spacing={2}>
@@ -159,7 +166,7 @@ export default function AdminReturnDetail() {
               <Box sx={card}>
                 <Typography sx={{ fontWeight: 700, mb: 1 }}>Case {item.status}</Typography>
                 {item.resolution && <Typography sx={{ fontSize: '0.88rem', textTransform: 'capitalize' }}>Resolution: {item.resolution.replaceAll('_', ' ')} · settled {fmtDate(item.resolvedAt)}</Typography>}
-                {item.creditAmount > 0 && <Typography sx={{ fontSize: '0.88rem', mt: 0.5 }}>Invoice credit: {money(item.creditAmount)} · cash refund: {money(item.refundAmount)}</Typography>}
+                {canSeeMoney && item.creditAmount > 0 && <Typography sx={{ fontSize: '0.88rem', mt: 0.5 }}>Invoice credit: {money(item.creditAmount)} · cash refund: {money(item.refundAmount)}</Typography>}
                 {item.replacementDevice && <Typography sx={{ fontSize: '0.88rem', mt: 0.5 }}>Replacement IMEI: {item.replacementDevice.imei || item.replacementDevice}</Typography>}
                 {item.resolutionNote && <Typography sx={{ fontSize: '0.86rem', mt: 1, color: 'text.secondary' }}>{item.resolutionNote}</Typography>}
               </Box>
@@ -167,7 +174,7 @@ export default function AdminReturnDetail() {
           </Stack>
         )}
       </Box>
-    </AdminLayout>
+    </Layout>
   )
 }
 

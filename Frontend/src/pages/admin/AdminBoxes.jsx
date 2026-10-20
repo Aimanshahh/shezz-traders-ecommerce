@@ -7,9 +7,8 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
-import AdminLayout from './AdminLayout.jsx'
 import BoxStateChip from '../admin/BoxStateChip.jsx'
-import { isAdminLoggedIn } from '../../lib/adminAuth.js'
+import { ADMIN_SHELL } from '../../lib/stockShell.js'
 import { getBoxes, createBox, getProducts } from '../../services/api.js'
 
 const GRID = { xs: '1fr auto', md: '1.2fr 0.8fr 2fr 2fr 1fr 40px' }
@@ -27,7 +26,8 @@ const stock = (b) => {
     .join(' · ')
 }
 
-export default function AdminBoxes() {
+export default function AdminBoxes({ shell = ADMIN_SHELL }) {
+  const { Layout, base, isLoggedIn, loginTo } = shell
   const navigate = useNavigate()
   const [boxes, setBoxes] = useState([])
   const [total, setTotal] = useState(0)
@@ -97,7 +97,7 @@ export default function AdminBoxes() {
         parentId: form.type === 'box' && form.parentId ? form.parentId : undefined,
         expectedCount: form.expectedCount === '' ? undefined : Number(form.expectedCount),
       })
-      navigate(`/admin/boxes/${box._id}`)
+      navigate(`${base}/boxes/${box._id}`)
     } catch (err) {
       setToast({ severity: 'error', text: err?.message || 'Could not create.' })
     } finally {
@@ -105,10 +105,10 @@ export default function AdminBoxes() {
     }
   }
 
-  if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
+  if (!isLoggedIn()) return <Navigate to={loginTo} replace />
 
   return (
-    <AdminLayout title="Boxes & cartons">
+    <Layout title="Boxes & cartons">
       <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
@@ -247,7 +247,7 @@ export default function AdminBoxes() {
               {boxes.map((b, i) => (
                 <Box
                   key={b._id}
-                  onClick={() => navigate(`/admin/boxes/${b._id}`)}
+                  onClick={() => navigate(`${base}/boxes/${b._id}`)}
                   sx={{
                     display: 'grid',
                     gridTemplateColumns: GRID,
@@ -424,6 +424,6 @@ export default function AdminBoxes() {
           {toast?.text}
         </Alert>
       </Snackbar>
-    </AdminLayout>
+    </Layout>
   )
 }

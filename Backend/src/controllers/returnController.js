@@ -10,8 +10,17 @@ import Counter from '../models/Counter.js'
 import { validateImei } from '../utils/Imei.js'
 import { warrantyState } from '../utils/saleInfo.js'
 import { outstandingOf } from '../utils/Ledger.js'
+import { isSalespersonRole } from '../utils/roles.js'
 
 const round2 = (n) => Math.round(n * 100) / 100
+// Salespeople log and track claims but never settle them, so no money leaves the server
+// for their account (the same rule the stock screens follow).
+const hidesMoney = (req) => isSalespersonRole(req.admin?.role)
+const withoutMoney = (doc, keys) => {
+  if (!doc) return doc
+  keys.forEach((key) => { delete doc[key] })
+  return doc
+}
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const adminName = (req) => req.admin?.name || req.admin?.username || req.admin?.email || ''
 
@@ -58,22 +67,27 @@ export async function lookupReturnDevice(req, res, next) {
       Warranty.findOne({ device: device._id, sale: saleInfo.sale._id }).sort({ createdAt: -1 }).lean(),
       ReturnCase.findOne({ device: device._id, status: 'open' }).select('caseNumber').lean(),
     ])
+    const sale = {
+      _id: saleInfo.sale._id,
+      invoiceNumber: saleInfo.sale.invoiceNumber,
+      customer: saleInfo.sale.customer,
+      customerSnapshot: saleInfo.sale.customerSnapshot,
+      total: saleInfo.sale.total,
+      subtotal: saleInfo.sale.subtotal,
+      amountPaid: saleInfo.sale.amountPaid,
+      paidLater: saleInfo.sale.paidLater,
+      returnedAmount: saleInfo.sale.returnedAmount || 0,
+      refundedAmount: saleInfo.sale.refundedAmount || 0,
+      item: { _id: saleInfo.item._id, unitPrice: saleInfo.item.unitPrice, productName: saleInfo.item.productName },
+    }
+    if (hidesMoney(req)) {
+      withoutMoney(sale, ['total', 'subtotal', 'amountPaid', 'paidLater', 'returnedAmount', 'refundedAmount'])
+      withoutMoney(sale.item, ['unitPrice'])
+    }
     res.json({
       ok: true,
       device: { _id: device._id, imei: device.imei, status: device.status, holder: device.holder },
-      sale: {
-        _id: saleInfo.sale._id,
-        invoiceNumber: saleInfo.sale.invoiceNumber,
-        customer: saleInfo.sale.customer,
-        customerSnapshot: saleInfo.sale.customerSnapshot,
-        total: saleInfo.sale.total,
-        subtotal: saleInfo.sale.subtotal,
-        amountPaid: saleInfo.sale.amountPaid,
-        paidLater: saleInfo.sale.paidLater,
-        returnedAmount: saleInfo.sale.returnedAmount || 0,
-        refundedAmount: saleInfo.sale.refundedAmount || 0,
-        item: { _id: saleInfo.item._id, unitPrice: saleInfo.item.unitPrice, productName: saleInfo.item.productName },
-      },
+      sale,
       warranty: warrantyState(warranty),
       openCase,
     })
@@ -97,6 +111,7 @@ export async function listReturnCases(req, res, next) {
       ReturnCase.countDocuments(filter),
       ReturnCase.countDocuments({ status: 'open' }),
     ])
+    if (hidesMoney(req)) cases.forEach((row) => withoutMoney(row, ['itemValue', 'creditAmount', 'refundAmount']))
     res.json({ ok: true, cases, total, openCount, page, pages: Math.ceil(total / limit) })
   } catch (err) {
     next(err)
@@ -118,6 +133,10 @@ export async function getReturnCase(req, res, next) {
     const refundableLimit = sale
       ? Math.max(0, round2(sale.amountPaid + (sale.paidLater || 0) - (sale.refundedAmount || 0)))
       : 0
+    if (hidesMoney(req)) {
+      withoutMoney(returnCase, ['itemValue', 'creditAmount', 'refundAmount'])
+      return res.json({ ok: true, returnCase, refundableLimit: 0 })
+    }
     res.json({ ok: true, returnCase, refundableLimit })
   } catch (err) {
     next(err)
@@ -306,7 +325,9 @@ export async function resolveReturnCase(req, res, next) {
       }
       returnCase.status = 'resolved'
       returnCase.resolution = resolution
-      returnCase.deviceOutcome = device.status
+      // The condition recorded for the returned device, not its inventory status: a
+      // repaired device goes back to the customer, so its status is "sold" again.
+      returnCase.deviceOutcome = outcome
       returnCase.replacementDevice = replacement?._id || null
       returnCase.creditAmount = creditAmount
       returnCase.refundAmount = refundAmount

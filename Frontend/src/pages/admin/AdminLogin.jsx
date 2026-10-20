@@ -10,7 +10,7 @@ import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
-import { loginAdmin, isAdminLoggedIn } from '../../lib/adminAuth.js'
+import { loginAdmin, logoutAdmin, isAdminLoggedIn, isSalespersonRole } from '../../lib/adminAuth.js'
 import { BRAND } from '../../theme/theme.js'
 
 export default function AdminLogin() {
@@ -34,7 +34,14 @@ export default function AdminLogin() {
     setError('')
     setLoading(true)
     try {
-      await loginAdmin(form.email, form.password, remember)
+      const account = await loginAdmin(form.email, form.password, remember)
+      if (isSalespersonRole(account.role)) {
+        // Keep the two sessions apart: a salesperson finishes at /staff.
+        logoutAdmin()
+        setError('This is a salesperson account. Please use the salesperson sign-in.')
+        navigate('/staff', { replace: true })
+        return
+      }
       navigate('/admin/dashboard', { replace: true })
     } catch (err) {
       setError(err.message || 'Login failed.')
@@ -172,7 +179,7 @@ export default function AdminLogin() {
                 mb: 3.5,
               }}
             >
-              Authorized personnel only. Enter your credentials to access the
+              Authorized person only. Enter your credentials to access the
               dashboard.
             </Typography>
 
@@ -277,33 +284,14 @@ export default function AdminLogin() {
               </Stack>
             </Box>
 
-            {/* Demo hint */}
-            <Box
-              sx={{
-                mt: 3,
-                p: 1.5,
-                borderRadius: 1.5,
-                bgcolor: 'rgba(0,131,143,0.06)',
-                border: '1px dashed rgba(0,131,143,0.25)',
-              }}
-            >
-              <Typography
-                sx={{
-                  fontSize: '0.7rem',
-                  fontWeight: 600,
-                  color: 'info.main',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  mb: 0.5,
-                }}
-              >
-                Demo credentials
-              </Typography>
-              <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                admin@shezztraders.com · admin123
-              </Typography>
-            </Box>
           </Box>
+
+                    <Typography sx={{ textAlign: 'center', mt: 2.5, fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>
+            Salesperson?{' '}
+            <Box component={RouterLink} to="/staff" sx={{ color: BRAND.teal, fontWeight: 700 }}>
+              Sign in here
+            </Box>
+          </Typography>
 
           {/* Back to store */}
           <Box sx={{ textAlign: 'center', mt: 3 }}>

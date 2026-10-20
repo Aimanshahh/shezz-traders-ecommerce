@@ -2,16 +2,21 @@ import { useState, useEffect } from 'react'
 import { Navigate, useNavigate, Link as RouterLink } from 'react-router-dom'
 import {
   Box, Typography, Stack, Button, InputBase, Snackbar, Alert, CircularProgress,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField,
 } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
+import AddIcon from '@mui/icons-material/Add'
+import PersonAddAltOutlinedIcon from '@mui/icons-material/PersonAddAltOutlined'
 import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined'
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 import AdminLayout from './AdminLayout.jsx'
 import { money, fmtDate } from '../../components/admin/format.js'
 import { isAdminLoggedIn } from '../../lib/adminAuth.js'
-import { getCustomers } from '../../services/api.js'
+import { getCustomers, createCustomer } from '../../services/api.js'
+
+const EMPTY_FORM = { name: '', phone: '', city: '', address: '', email: '' }
 
 const GRID = { xs: '1fr auto', md: '2fr 1fr 1fr 1.2fr 1.2fr 1.2fr 1.1fr 40px' }
 const HEADS = ['Customer', 'Phone', 'Devices', 'Billed', 'Paid', 'Balance due', 'Last purchase', '']
@@ -26,6 +31,10 @@ export default function AdminCustomers() {
   const [search, setSearch] = useState('')
   const [q, setQ] = useState('')
   const [toast, setToast] = useState(null)
+
+  const [createOpen, setCreateOpen] = useState(false)
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -53,6 +62,35 @@ export default function AdminCustomers() {
 
   const pageDue = rows.reduce((s, r) => s + Math.max(r.stats?.balance || 0, 0), 0)
 
+  const openCreate = () => {
+    setForm(EMPTY_FORM)
+    setCreateOpen(true)
+  }
+
+  const handleCreate = async () => {
+    if (!form.name.trim()) {
+      setToast({ severity: 'error', text: 'Enter the customer name.' })
+      return
+    }
+    setCreating(true)
+    try {
+      const customer = await createCustomer({
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        city: form.city.trim(),
+        address: form.address.trim(),
+        email: form.email.trim(),
+      })
+      setCreateOpen(false)
+      setToast({ severity: 'success', text: `${customer.name} was added.` })
+      navigate(`/admin/customers/${customer._id}`)
+    } catch (err) {
+      setToast({ severity: 'error', text: err?.message || 'Could not create this customer.' })
+    } finally {
+      setCreating(false)
+    }
+  }
+
   return (
     <AdminLayout title="Customers">
       <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
@@ -70,16 +108,27 @@ export default function AdminCustomers() {
               <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary' }}>Customer accounts, payments, device ownership and statements.</Typography>
             </Box>
           </Stack>
-          <Button
-            component={RouterLink}
-            to="/admin/handover"
-            variant="outlined"
-            color="info"
-            startIcon={<SwapHorizIcon />}
-            sx={{ borderRadius: 999, fontWeight: 700, px: 2.5 }}
-          >
-            Dealer handover
-          </Button>
+          <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+            <Button
+              component={RouterLink}
+              to="/admin/handover"
+              variant="outlined"
+              color="info"
+              startIcon={<SwapHorizIcon />}
+              sx={{ borderRadius: 999, fontWeight: 700, px: 2.5 }}
+            >
+              Dealer handover
+            </Button>
+            <Button
+              variant="contained"
+              color="info"
+              startIcon={<AddIcon />}
+              onClick={openCreate}
+              sx={{ borderRadius: 999, fontWeight: 700, px: 2.5 }}
+            >
+              New customer
+            </Button>
+          </Stack>
         </Stack>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(2, minmax(0, 260px))' }, gap: 1.5, mb: 2.5 }}>
@@ -116,8 +165,19 @@ export default function AdminCustomers() {
                 {q ? 'No matching customers' : 'No customers yet'}
               </Typography>
               <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
-                {q ? 'Try a different search.' : 'Customers appear here after their first sale.'}
+                {q ? 'Try a different search.' : 'Add a customer before their first sale, or make the sale and they are created for you.'}
               </Typography>
+              {!q && (
+                <Button
+                  variant="outlined"
+                  color="info"
+                  startIcon={<PersonAddAltOutlinedIcon />}
+                  onClick={openCreate}
+                  sx={{ borderRadius: 999, fontWeight: 700, mt: 2 }}
+                >
+                  New customer
+                </Button>
+              )}
             </Box>
           ) : (
             <>
@@ -146,10 +206,10 @@ export default function AdminCustomers() {
                       <Typography sx={{ fontSize: '0.9rem', fontWeight: 700 }}>{c.name}</Typography>
                       <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary' }}>
                         {c.city || '—'}
-                        <Box component="span" sx={{ display: { xs: 'inline', md: 'none' } }}> · {c.phone}</Box>
+                        {c.phone && <Box component="span" sx={{ display: { xs: 'inline', md: 'none' } }}> · {c.phone}</Box>}
                       </Typography>
                     </Box>
-                    <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', display: { xs: 'none', md: 'block' } }}>{c.phone}</Typography>
+                    <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', display: { xs: 'none', md: 'block' } }}>{c.phone || '—'}</Typography>
                     <Typography sx={{ fontSize: '0.84rem', display: { xs: 'none', md: 'block' } }}>{st.devices || 0}</Typography>
                     <Typography sx={{ fontSize: '0.84rem', display: { xs: 'none', md: 'block' } }}>{money(st.spent)}</Typography>
                     <Typography sx={{ fontSize: '0.84rem', display: { xs: 'none', md: 'block' } }}>{money(st.paid)}</Typography>
@@ -178,8 +238,72 @@ export default function AdminCustomers() {
         )}
       </Box>
 
+      <Dialog
+        open={createOpen}
+        onClose={() => !creating && setCreateOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>New customer</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <TextField
+              label="Name"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              fullWidth
+              autoFocus
+              required
+            />
+            <TextField
+              label="Mobile (optional)"
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              inputProps={{ inputMode: 'tel' }}
+              fullWidth
+              helperText="Used to find this customer on the staff screen"
+            />
+            <TextField
+              label="City (optional)"
+              value={form.city}
+              onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="Email (optional)"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="Address (optional)"
+              value={form.address}
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+              fullWidth
+              multiline
+              minRows={2}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setCreateOpen(false)} disabled={creating} sx={{ textTransform: 'none', color: 'text.secondary' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreate}
+            disabled={creating}
+            variant="contained"
+            color="info"
+            sx={{ textTransform: 'none', borderRadius: 999, fontWeight: 700, px: 3 }}
+          >
+            {creating ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Add customer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Snackbar open={!!toast} autoHideDuration={3500} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <Alert onClose={() => setToast(null)} severity="error" variant="filled" sx={{ borderRadius: 2, fontWeight: 600 }}>{toast}</Alert>
+        <Alert onClose={() => setToast(null)} severity={toast?.severity || 'error'} variant="filled" sx={{ borderRadius: 2, fontWeight: 600 }}>{toast?.text || toast}</Alert>
       </Snackbar>
     </AdminLayout>
   )

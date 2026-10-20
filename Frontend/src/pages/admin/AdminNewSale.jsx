@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import {
   Box, Typography, Stack, Button, TextField, MenuItem, Alert, CircularProgress,
   IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Card, CardContent, Divider, Checkbox, ToggleButton, ToggleButtonGroup,
+  Autocomplete
 } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined'
@@ -15,12 +16,11 @@ import {
   money, fmtDate, PAYMENT_METHODS, SALE_SOURCES, WARRANTY_LABELS,
 } from '../../components/admin/format.js'
 import { isAdminLoggedIn, getAdminUser } from '../../lib/adminAuth.js'
-import { resolveCode, createSale, lookupCustomer, getProducts } from '../../services/api.js'
+import { resolveCode, createSale, getProducts, getCustomers, getCustomer } from '../../services/api.js'
 
 const TONE_COLOR = { success: '#0F8A5F', info: '#475569', error: '#C81E1E' }
 
-// Consistent border style for all components
-const BORDER_COLOR = '#CBD5E1' // slate-300
+const BORDER_COLOR = '#CBD5E1'
 const INPUT_SX = {
   '& .MuiOutlinedInput-root': {
     '& fieldset': { borderColor: BORDER_COLOR },
@@ -39,20 +39,18 @@ function reasonText(item) {
   return item.status
 }
 
-const toLine = (i) => ({
-  imei: i.imei,
-  productName: i.product?.name || '—',
-  box: i.box || '',
-  unitPrice: String(i.product?.price ?? 0),
-})
-
 export default function AdminNewSale() {
   const navigate = useNavigate()
   const admin = getAdminUser()
 
+  // Customer States
+  const [customers, setCustomers] = useState([])
+  const [customerQuery, setCustomerQuery] = useState('')
+  const [loadingCustomers, setLoadingCustomers] = useState(false)
   const [customer, setCustomer] = useState({ name: '', phone: '', city: '', address: '' })
   const [customerId, setCustomerId] = useState('')
   const [matched, setMatched] = useState(null)
+  const [customerRates, setCustomerRates] = useState({})
 
   const [lines, setLines] = useState([])
   const linesRef = useRef([])
@@ -62,6 +60,7 @@ export default function AdminNewSale() {
   const [selectedBoxImeis, setSelectedBoxImeis] = useState([])
   const [products, setProducts] = useState([])
   const [extras, setExtras] = useState([])
+  const [bulkPrice, setBulkPrice] = useState('')
 
   const [discount, setDiscount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
@@ -82,6 +81,46 @@ export default function AdminNewSale() {
     getProducts().then(setProducts).catch(() => {})
   }, [])
 
+  // Fetch customers for autocomplete
+  useEffect(() => {
+    let alive = true
+    const t = setTimeout(async () => {
+      setLoadingCustomers(true)
+      try {
+        const data = await getCustomers({ q: customerQuery, limit: 50 })
+        if (alive) setCustomers(data.customers || [])
+      } catch {
+        /* ignore */
+      } finally {
+        if (alive) setLoadingCustomers(false)
+      }
+    }, 300)
+    return () => { alive = false; clearTimeout(t) }
+  }, [customerQuery])
+
+  // Update prices if customer rates change
+  useEffect(() => {
+    if (Object.keys(customerRates).length === 0 && !customerId) return;
+    
+    setLines((prev) =>
+      prev.map((l) => {
+        if (l.productId && customerRates[l.productId] !== undefined) {
+          return { ...l, unitPrice: String(customerRates[l.productId]) };
+        }
+        return l;
+      })
+    );
+    
+    setExtras((prev) =>
+      prev.map((e) => {
+        if (customerRates[e.productId] !== undefined) {
+          return { ...e, unitPrice: String(customerRates[e.productId]) };
+        }
+        return e;
+      })
+    );
+  }, [customerRates, customerId]);
+
   const subtotal = useMemo(
     () => lines.reduce((sum, l) => sum + (Number(l.unitPrice) || 0), 0),
     [lines]
@@ -93,6 +132,7 @@ export default function AdminNewSale() {
   const paidNow = payMode === 'full' ? total : payMode === 'later' ? 0 : Math.max(Number(amountPaid) || 0, 0)
   const pendingBalance = Math.max(total - paidNow, 0)
   const partInvalid = payMode === 'part' && (!(Number(amountPaid) > 0) || Number(amountPaid) >= total)
+  
   const inDays = (n) => {
     const d = new Date()
     d.setDate(d.getDate() + n)
@@ -101,6 +141,22 @@ export default function AdminNewSale() {
   }
 
   const pushFeed = (entry) => setFeed((f) => [entry, ...f].slice(0, 8))
+
+  const getRate = (pid, defaultPrice) => {
+    return (pid && customerRates[pid] !== undefined) ? customerRates[pid] : defaultPrice;
+  }
+
+  const toLine = (i) => {
+    const pid = i.product?._id;
+    const defaultPrice = i.product?.price ?? 0;
+    return {
+      imei: i.imei,
+      productId: pid,
+      productName: i.product?.name || '—',
+      box: i.box || '',
+      unitPrice: String(getRate(pid, defaultPrice)),
+    }
+  }
 
   const addLines = (items, label) => {
     setLines((prev) => {
@@ -116,12 +172,43 @@ export default function AdminNewSale() {
   const addExtra = (productId) => {
     const product = products.find((item) => String(item._id || item.id) === String(productId))
     if (!product) return
+    const price = getRate(productId, product.price || 0)
+    
     setExtras((current) => current.some((extra) => extra.productId === String(productId))
       ? current
-      : [...current, { productId: String(productId), name: product.name, quantity: 1, unitPrice: String(product.price || 0) }])
+      : [...current, { productId: String(productId), name: product.name, quantity: 1, unitPrice: String(price) }])
   }
 
   const updateExtra = (productId, field, value) => setExtras((current) => current.map((extra) => extra.productId === productId ? { ...extra, [field]: value } : extra))
+
+  const handleSelectCustomer = async (cust) => {
+    if (!cust) {
+      setCustomerId('')
+      setMatched(null)
+      setCustomer({ name: '', phone: '', city: '', address: '' })
+      setCustomerRates({})
+      return
+    }
+    
+    setCustomerId(cust._id)
+    setMatched(cust)
+    setCustomer({
+      name: cust.name,
+      phone: cust.phone || '',
+      city: cust.city || '',
+      address: cust.address || '',
+    })
+
+    // Fetch custom rates
+    try {
+      const fullCust = await getCustomer(cust._id)
+      const rateMap = {}
+      ;(fullCust.prices || []).forEach(p => { rateMap[p.product] = p.price })
+      setCustomerRates(rateMap)
+    } catch (e) {
+      setCustomerRates({})
+    }
+  }
 
   const handleScan = async (code) => {
     try {
@@ -159,37 +246,19 @@ export default function AdminNewSale() {
     }
   }
 
-  const handlePhoneBlur = async () => {
-    const phone = customer.phone.trim()
-    if (phone.length < 7) return
-    try {
-      const r = await lookupCustomer(phone)
-      if (r.customer) {
-        setCustomerId(r.customer._id)
-        setMatched({ ...r.customer, stats: r.stats })
-        setCustomer((c) => ({
-          phone: c.phone,
-          name: r.customer.name,
-          city: c.city || r.customer.city || '',
-          address: c.address || r.customer.address || '',
-        }))
-      } else {
-        setCustomerId('')
-        setMatched(null)
-      }
-    } catch {
-      /* lookup is only a convenience */
-    }
-  }
-
   const setPrice = (imei, value) =>
-    setLines((prev) => prev.map((l) => ({ ...l, unitPrice: value })))
+    setLines((prev) => prev.map((l) => (l.imei === imei ? { ...l, unitPrice: value } : l)))
+
+  const applyPriceToAll = () => {
+    if (bulkPrice === '') return
+    setLines((prev) => prev.map((l) => ({ ...l, unitPrice: bulkPrice })))
+    setBulkPrice('')
+  }
 
   const removeLine = (imei) => setLines((prev) => prev.filter((l) => l.imei !== imei))
 
   const canSubmit =
     lines.length > 0 &&
-    customer.phone.trim().length >= 7 &&
     (customerId || customer.name.trim()) &&
     discountNum <= saleSubtotal &&
     !partInvalid
@@ -237,31 +306,36 @@ export default function AdminNewSale() {
             alignItems: 'start',
           }}
         >
-          {/* LEFT COLUMN: Customer & Devices */}
           <Stack spacing={3}>
-            
             {/* Customer Card */}
             <Card elevation={0} sx={{ border: `1px solid ${BORDER_COLOR}`, borderRadius: 1.5 }}>
               <CardContent sx={{ p: { xs: 2.25, md: 2.75 } }}>
                 <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', mb: 2.25, display: 'flex', alignItems: 'center', gap: 1 }}>
                   <PersonOutlinedIcon sx={{ color: 'text.secondary' }} /> Customer Details
                 </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
-                  <TextField
-                    label="Phone Number"
-                    size="small"
-                    value={customer.phone}
-                    onChange={(e) => {
-                      setCustomer((c) => ({ ...c, phone: e.target.value }))
-                      setCustomerId('')
-                      setMatched(null)
-                    }}
-                    onBlur={handlePhoneBlur}
-                    inputProps={{ inputMode: 'tel' }}
-                    required
-                    variant="outlined"
-                    sx={INPUT_SX}
+                
+                <Box sx={{ mb: 2.5 }}>
+                  <Autocomplete
+                    options={customers}
+                    value={matched || null}
+                    loading={loadingCustomers}
+                    onChange={(_, value) => handleSelectCustomer(value)}
+                    onInputChange={(_, value, reason) => { if (reason !== 'reset') setCustomerQuery(value) }}
+                    getOptionLabel={(option) => [option.name, option.phone].filter(Boolean).join(' · ')}
+                    isOptionEqualToValue={(option, value) => String(option._id) === String(value._id)}
+                    noOptionsText="No customer found. Enter details manually below."
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Search existing customer by name or phone"
+                        size="small"
+                        sx={INPUT_SX}
+                      />
+                    )}
                   />
+                </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
                   <TextField
                     label="Full Name"
                     size="small"
@@ -269,6 +343,17 @@ export default function AdminNewSale() {
                     onChange={(e) => setCustomer((c) => ({ ...c, name: e.target.value }))}
                     disabled={!!customerId}
                     required={!customerId}
+                    helperText={!customerId ? 'Required for new customer' : 'Selected customer'}
+                    variant="outlined"
+                    sx={INPUT_SX}
+                  />
+                  <TextField
+                    label="Mobile number (optional)"
+                    size="small"
+                    value={customer.phone}
+                    onChange={(e) => setCustomer((c) => ({ ...c, phone: e.target.value }))}
+                    disabled={!!customerId}
+                    inputProps={{ inputMode: 'tel' }}
                     variant="outlined"
                     sx={INPUT_SX}
                   />
@@ -295,13 +380,16 @@ export default function AdminNewSale() {
                       Returning Customer
                     </Typography>
                     <Typography sx={{ fontSize: '0.85rem' }}>
-                      {matched.name} · {matched.stats.purchases} {matched.stats.purchases === 1 ? 'purchase' : 'purchases'} · {money(matched.stats.spent)} spent
+                      {matched.name} · {matched.stats?.purchases || 0} {matched.stats?.purchases === 1 ? 'purchase' : 'purchases'} · {money(matched.stats?.spent || 0)} spent
                     </Typography>
-                    {matched.stats.balance > 0 && (
+                    {matched.stats?.balance > 0 && (
                       <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'warning.dark' }}>
                         Already owes {money(matched.stats.balance)} from earlier invoices
                       </Typography>
                     )}
+                    <Typography sx={{ fontSize: '0.8rem', color: 'info.main', mt: 0.5, fontWeight: 600 }}>
+                      Applied specific rates for this customer.
+                    </Typography>
                   </Alert>
                 )}
               </CardContent>
@@ -323,7 +411,6 @@ export default function AdminNewSale() {
                   buttonLabel="Add Device"
                 />
 
-                {/* Scanner Feed */}
                 {feed.length > 0 && (
                   <Box sx={{ mt: 3, p: 2, bgcolor: '#F8FAFC', borderRadius: 1.5, border: `1px solid ${BORDER_COLOR}`, maxHeight: 150, overflowY: 'auto' }}>
                     <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', mb: 1 }}>
@@ -340,7 +427,6 @@ export default function AdminNewSale() {
                   </Box>
                 )}
 
-                {/* Device List */}
                 <Box sx={{ mt: 3 }}>
                   {lines.length === 0 ? (
                     <Box sx={{ textAlign: 'center', py: 4, bgcolor: '#F8FAFC', borderRadius: 2, border: `2px dashed ${BORDER_COLOR}` }}>
@@ -350,18 +436,35 @@ export default function AdminNewSale() {
                     </Box>
                   ) : (
                     <>
-                      <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', mb: 1.5 }}>
-                        {lines.length} {lines.length === 1 ? 'Device' : 'Devices'} in this sale
-                      </Typography>
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" useFlexGap sx={{ mb: 1.5, gap: 1 }}>
+                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary' }}>
+                          {lines.length} {lines.length === 1 ? 'Device' : 'Devices'} in this sale
+                        </Typography>
+                        {lines.length > 1 && (
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <TextField
+                              size="small"
+                              type="number"
+                              placeholder="Same price for all"
+                              value={bulkPrice}
+                              onChange={(e) => setBulkPrice(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') applyPriceToAll() }}
+                              inputProps={{ min: 0, style: { textAlign: 'right', fontSize: '0.82rem' } }}
+                              sx={{ width: 150, ...INPUT_SX }}
+                            />
+                            <Button size="small" variant="outlined" color="info" disabled={bulkPrice === ''} onClick={applyPriceToAll} sx={{ textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                              Apply to all
+                            </Button>
+                          </Stack>
+                        )}
+                      </Stack>
                       
-                      {/* List Header */}
                       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 100px 40px', gap: 2, px: 2, pb: 1.5, borderBottom: `2px solid ${BORDER_COLOR}` }}>
                         <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary' }}>DEVICE / IMEI</Typography>
                         <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', textAlign: 'right' }}>PRICE</Typography>
                         <Box />
                       </Box>
 
-                      {/* List Rows */}
                       {lines.map((l) => (
                         <Box
                           key={l.imei}
@@ -407,6 +510,7 @@ export default function AdminNewSale() {
               </CardContent>
             </Card>
 
+            {/* Other Components Card */}
             <Card elevation={0} sx={{ border: `1px solid ${BORDER_COLOR}`, borderRadius: 1.5 }}>
               <CardContent sx={{ p: { xs: 2.25, md: 2.75 } }}>
                 <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', mb: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -415,7 +519,10 @@ export default function AdminNewSale() {
                 <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mb: 2 }}>Add cables, accessories or other stocked products to this invoice.</Typography>
                 <TextField select size="small" label="Add a product" value="" onChange={(event) => addExtra(event.target.value)} fullWidth sx={INPUT_SX}>
                   <MenuItem value="" disabled>Select a product</MenuItem>
-                  {products.map((product) => <MenuItem key={product._id || product.id} value={product._id || product.id}>{product.name} · {money(product.price)}</MenuItem>)}
+                  {products.map((product) => {
+                    const price = getRate(product._id || product.id, product.price || 0)
+                    return <MenuItem key={product._id || product.id} value={product._id || product.id}>{product.name} · {money(price)}</MenuItem>
+                  })}
                 </TextField>
                 {extras.length > 0 && <Stack spacing={1} sx={{ mt: 2 }}>
                   {extras.map((extra) => <Box key={extra.productId} sx={{ display: 'grid', gridTemplateColumns: '1fr 70px 105px 36px', gap: 1, alignItems: 'center', p: 1, bgcolor: '#F8FAFC', border: `1px solid ${BORDER_COLOR}`, borderRadius: 1 }}>
@@ -429,7 +536,7 @@ export default function AdminNewSale() {
             </Card>
           </Stack>
 
-          {/* RIGHT COLUMN: Summary */}
+          {/* Summary Card */}
           <Card 
             elevation={0} 
             sx={{ 
@@ -442,15 +549,12 @@ export default function AdminNewSale() {
                 <ReceiptLongOutlinedIcon sx={{ color: 'text.secondary' }} /> Order Summary
               </Typography>
 
-              {/* TOTALS SECTION - FIXED ALIGNMENT & OUTLINES */}
               <Stack spacing={2.5} sx={{ mb: 4 }}>
-                {/* Subtotal Row */}
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ width: '100%' }}>
                   <Typography sx={{ fontSize: '0.86rem', color: 'text.secondary', fontWeight: 600 }}>Subtotal</Typography>
                   <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, color: 'text.primary', whiteSpace: 'nowrap' }}>{money(saleSubtotal)}</Typography>
                 </Stack>
                 
-                {/* Discount Row */}
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
                   <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary', fontWeight: 500 }}>Discount</Typography>
                   <Box sx={{ width: 120 }}>
@@ -471,7 +575,6 @@ export default function AdminNewSale() {
                 
                 <Divider sx={{ borderColor: BORDER_COLOR, my: 0.5 }} />
                 
-                {/* Total Row */}
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ width: '100%' }}>
                   <Typography sx={{ fontSize: '1rem', fontWeight: 800, color: 'text.primary' }}>Total</Typography>
                   <Typography sx={{ fontSize: '1.45rem', fontWeight: 800, fontFamily: '"Barlow Condensed", sans-serif', color: 'text.primary', whiteSpace: 'nowrap' }}>
@@ -494,7 +597,6 @@ export default function AdminNewSale() {
 
               <Divider sx={{ my: 3, borderColor: BORDER_COLOR }} />
 
-              {/* Payment Details */}
               <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', mb: 2 }}>
                 Payment & Source
               </Typography>
@@ -568,7 +670,6 @@ export default function AdminNewSale() {
 
               <Divider sx={{ my: 2.5, borderColor: BORDER_COLOR }} />
 
-              {/* Notes */}
               <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', mb: 2 }}>
                 Additional Notes
               </Typography>
@@ -634,7 +735,6 @@ export default function AdminNewSale() {
         </DialogActions>
       </Dialog>
 
-      {/* Confirmation Dialog */}
       <Dialog open={!!confirm} onClose={() => setConfirm(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2, border: `1px solid ${BORDER_COLOR}` } }}>
         <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>Some devices in {confirm?.label} cannot be sold</DialogTitle>
         <DialogContent>

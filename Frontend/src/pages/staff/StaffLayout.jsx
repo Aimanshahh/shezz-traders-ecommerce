@@ -1,0 +1,362 @@
+import { useState } from 'react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import {
+  Box, Drawer, Typography, Stack, IconButton, Avatar, Divider,
+  useMediaQuery, Tooltip,
+} from '@mui/material'
+import { useTheme, alpha } from '@mui/material/styles'
+import MenuIcon from '@mui/icons-material/Menu'
+import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined'
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner'
+import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined'
+import AssignmentReturnOutlinedIcon from '@mui/icons-material/AssignmentReturnOutlined'
+import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined'
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined'
+import { getStaffUser, logoutStaff } from '../../lib/staffAuth.js'
+import { BRAND } from '../../theme/theme.js'
+
+const SALE_ITEMS = [
+  { label: 'Create sale', to: '/staff/new', icon: AddCircleOutlinedIcon },
+  { label: 'My submissions', to: '/staff/sales', icon: ReceiptLongOutlinedIcon },
+]
+
+const STOCK_ITEMS = [
+  { label: 'Devices / IMEI', to: '/staff/devices', icon: QrCodeScannerIcon, prefix: true },
+  { label: 'Boxes & cartons', to: '/staff/boxes', icon: ViewInArOutlinedIcon, prefix: true },
+]
+
+const SERVICE_ITEMS = [
+  { label: 'Returns & warranty', to: '/staff/returns', icon: AssignmentReturnOutlinedIcon, prefix: true },
+]
+
+const SIDEBAR_WIDTH = 260
+
+export default function StaffLayout({ children, title = 'Create sale', subtitle = '' }) {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const user = getStaffUser()
+
+  const logout = () => {
+    logoutStaff()
+    navigate('/staff', { replace: true })
+  }
+
+  const initials = user?.name
+    ? user.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+    : 'SP'
+
+  const renderNavGroup = (heading, items) => (
+    <Box sx={{ mb: 2 }}>
+      <Typography
+        sx={{
+          fontSize: '0.62rem',
+          fontWeight: 700,
+          letterSpacing: '0.18em',
+          textTransform: 'uppercase',
+          color: 'rgba(255,255,255,0.35)',
+          px: 3,
+          mb: 1,
+        }}
+      >
+        {heading}
+      </Typography>
+
+      <Stack spacing={0.25}>
+        {items.map((item) => {
+          const active = item.prefix
+            ? location.pathname.startsWith(item.to)
+            : location.pathname === item.to
+          return (
+            <Box
+              key={item.label}
+              component={NavLink}
+              to={item.to}
+              aria-label={item.label}
+              onClick={() => setMobileOpen(false)}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                mx: 1.5,
+                px: 1.75,
+                py: 1.15,
+                borderRadius: 1.5,
+                textDecoration: 'none',
+                color: active ? '#fff' : 'rgba(255,255,255,0.7)',
+                bgcolor: active ? alpha(BRAND.teal, 0.15) : 'transparent',
+                borderLeft: '3px solid',
+                borderColor: active ? BRAND.teal : 'transparent',
+                transition: 'all 0.18s ease',
+                '&:hover': {
+                  bgcolor: active ? alpha(BRAND.teal, 0.2) : 'rgba(255,255,255,0.05)',
+                  color: '#fff',
+                },
+              }}
+            >
+              <item.icon sx={{ fontSize: 19, flexShrink: 0 }} />
+              <Typography
+                sx={{
+                  fontSize: '0.88rem',
+                  fontWeight: active ? 700 : 500,
+                  flex: 1,
+                  lineHeight: 1.2,
+                }}
+              >
+                {item.label}
+              </Typography>
+            </Box>
+          )
+        })}
+      </Stack>
+    </Box>
+  )
+
+  const SidebarContent = (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        bgcolor: 'secondary.main',
+        color: '#fff',
+      }}
+    >
+      {/* Brand */}
+      <Stack direction="row" alignItems="center" spacing={1.25} sx={{ px: 3, py: 3 }}>
+        <Box
+          component="img"
+          src="/images/logo.png"
+          alt="Shezz Traders"
+          sx={{ height: 36, width: 36 }}
+        />
+        <Box>
+          <Typography
+            sx={{
+              fontFamily: '"Barlow Condensed", sans-serif',
+              fontWeight: 700,
+              fontSize: '1rem',
+              lineHeight: 1,
+              color: '#fff',
+              letterSpacing: 0.5,
+            }}
+          >
+            SHEZZ <Box component="span" sx={{ color: BRAND.teal }}>Operations</Box>
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: '0.62rem',
+              color: 'rgba(255,255,255,0.45)',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              mt: 0.25,
+            }}
+          >
+            Sale entry
+          </Typography>
+        </Box>
+      </Stack>
+
+      <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+
+      {/* Nav */}
+      <Box sx={{ flex: 1, overflowY: 'auto', py: 2 }}>
+        {renderNavGroup('Sales', SALE_ITEMS)}
+        {renderNavGroup('Stock', STOCK_ITEMS)}
+        {renderNavGroup('After sales', SERVICE_ITEMS)}
+      </Box>
+
+      <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+
+      {/* Bottom: view store + user info */}
+      <Box sx={{ p: 2 }}>
+        <Box
+          component={NavLink}
+          to="/"
+          aria-label="View store"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.25,
+            px: 1.5,
+            py: 1,
+            borderRadius: 1.5,
+            textDecoration: 'none',
+            color: 'rgba(255,255,255,0.7)',
+            fontSize: '0.82rem',
+            mb: 1.5,
+            transition: 'all 0.18s ease',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#fff' },
+          }}
+        >
+          <StorefrontOutlinedIcon sx={{ fontSize: 17 }} />
+          View store
+        </Box>
+
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1.25}
+          sx={{ px: 1, py: 1, borderRadius: 1.5, bgcolor: 'rgba(255,255,255,0.04)' }}
+        >
+          <Avatar
+            sx={{
+              width: 34,
+              height: 34,
+              bgcolor: BRAND.teal,
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '0.8rem',
+              fontFamily: '"Barlow Condensed", sans-serif',
+            }}
+          >
+            {initials}
+          </Avatar>
+
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography
+              sx={{
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                color: '#fff',
+                lineHeight: 1.2,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {user?.name || 'Salesperson'}
+            </Typography>
+            <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.2 }}>
+              Operations staff
+            </Typography>
+          </Box>
+
+          <Tooltip title="Sign out" arrow>
+            <IconButton
+              onClick={logout}
+              size="small"
+              aria-label="Sign out"
+              sx={{
+                color: 'rgba(255,255,255,0.6)',
+                '&:hover': { color: BRAND.red, bgcolor: 'rgba(227,30,36,0.1)' },
+              }}
+            >
+              <LogoutOutlinedIcon sx={{ fontSize: 17 }} />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      </Box>
+    </Box>
+  )
+
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#F5F6F8' }}>
+      {/* Sidebar — desktop */}
+      {!isMobile && (
+        <Box
+          sx={{
+            width: SIDEBAR_WIDTH,
+            flexShrink: 0,
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            zIndex: 1200,
+          }}
+        >
+          {SidebarContent}
+        </Box>
+      )}
+
+      {/* Sidebar — mobile drawer */}
+      {isMobile && (
+        <Drawer
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          PaperProps={{ sx: { width: SIDEBAR_WIDTH, border: 'none' } }}
+        >
+          {SidebarContent}
+        </Drawer>
+      )}
+
+      {/* Main */}
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          ml: { md: `${SIDEBAR_WIDTH}px` },
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {/* Top bar */}
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 1100,
+            bgcolor: 'background.paper',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            px: { xs: 2, md: 3 },
+            py: 1.75,
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={2}>
+            {isMobile && (
+              <IconButton
+                onClick={() => setMobileOpen(true)}
+                size="small"
+                aria-label="Open menu"
+                sx={{ color: 'text.primary' }}
+              >
+                <MenuIcon />
+              </IconButton>
+            )}
+
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography
+                sx={{
+                  fontFamily: '"Barlow Condensed", sans-serif',
+                  fontWeight: 700,
+                  fontSize: { xs: '1.2rem', md: '1.4rem' },
+                  lineHeight: 1.15,
+                  color: 'text.primary',
+                }}
+              >
+                {title}
+              </Typography>
+              {subtitle && (
+                <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary', lineHeight: 1.3 }}>
+                  {subtitle}
+                </Typography>
+              )}
+            </Box>
+
+            <Avatar
+              sx={{
+                width: 34,
+                height: 34,
+                bgcolor: 'info.main',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: '0.75rem',
+                fontFamily: '"Barlow Condensed", sans-serif',
+                display: { xs: 'none', sm: 'flex' },
+              }}
+            >
+              {initials}
+            </Avatar>
+          </Stack>
+        </Box>
+
+        {/* Page content */}
+        <Box sx={{ p: { xs: 2, md: 3 }, flex: 1 }}>{children}</Box>
+      </Box>
+    </Box>
+  )
+}

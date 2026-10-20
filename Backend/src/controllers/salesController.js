@@ -164,9 +164,11 @@ export async function completeSale(req, res, next) {
     let customerInput = null
     if (!body.customerId) {
       const name = String(body.customer?.name ?? '').trim()
-      const phone = normalizePhone(body.customer?.phone)
+      const rawPhone = String(body.customer?.phone ?? '').trim()
+      const phone = rawPhone ? normalizePhone(rawPhone) : ''
       if (!name) return res.status(400).json({ ok: false, message: 'Customer name is required' })
-      if (!isValidPhone(phone)) {
+      // The phone is optional; when one is given it still has to be usable.
+      if (phone && !isValidPhone(phone)) {
         return res.status(400).json({ ok: false, message: 'Enter a valid customer phone number' })
       }
       customerInput = {
@@ -278,7 +280,11 @@ export async function completeSale(req, res, next) {
         customer = await Customer.findById(body.customerId).session(session)
         if (!customer) throw new SaleError('Customer not found', 404)
       } else {
-        customer = await Customer.findOne({ phone: customerInput.phone }).session(session)
+        // Only match an existing account when a phone was actually entered;
+        // otherwise two unnamed-phone customers would be merged.
+        if (customerInput.phone) {
+          customer = await Customer.findOne({ phone: customerInput.phone }).session(session)
+        }
         if (!customer) {
           ;[customer] = await Customer.create(
             [{ ...customerInput, createdBy: req.admin?._id || null }],
@@ -322,6 +328,7 @@ export async function completeSale(req, res, next) {
         [
           {
             invoiceNumber,
+            saleNumber: invoiceNumber,
             customer: customer._id,
             customerSnapshot: {
               name: customer.name,
@@ -436,6 +443,14 @@ export async function listSales(req, res, next) {
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 25, 1), 100)
     const filter = {}
 
+    // The list keeps showing finished invoices by default; submissions and rejects
+    // each have their own tab so they never inflate revenue.
+    const status = String(req.query.status || 'active')
+    if (status === 'pending') filter.status = 'pending'
+    else if (status === 'rejected') filter.status = 'rejected'
+    else if (status === 'all') filter.status = { $in: ['completed', 'void', 'pending', 'rejected'] }
+    else filter.status = { $in: ['completed', 'void'] }
+
     if (req.query.payment === 'pending') filter.paymentStatus = { $in: ['unpaid', 'partial'] }
     else if (['paid', 'partial', 'unpaid'].includes(req.query.payment)) filter.paymentStatus = req.query.payment
 
@@ -496,6 +511,17 @@ export async function listSales(req, res, next) {
         },
       ]),
     ])
+    const reviewAgg = await Sale.aggregate([
+      { $match: { status: 'pending' } },
+      {
+        $group: {
+          _id: null,
+          count: { $sum: 1 },
+          value: { $sum: '$total' },
+        },
+      },
+    ])
+    const review = reviewAgg[0] || { count: 0, value: 0 }
     const totals = agg[0] || { revenue: 0, devices: 0, count: 0 }
     const pend = pendingAgg[0] || { count: 0, outstanding: 0, overdue: 0 }
     res.json({
@@ -506,6 +532,10 @@ export async function listSales(req, res, next) {
       pages: Math.ceil(total / limit),
       totals: { revenue: totals.revenue, devices: totals.devices, count: totals.count },
       pending: { count: pend.count, outstanding: Math.max(Math.round(pend.outstanding * 100) / 100, 0), overdue: pend.overdue },
+      review: {
+        count: review.count,
+        value: Math.round((review.value || 0) * 100) / 100,
+      },
     })
   } catch (err) {
     next(err)
@@ -554,6 +584,16 @@ export async function deleteSale(req, res, next) {
     }
     const sale = await Sale.findById(req.params.id).lean()
     if (!sale) return res.status(404).json({ ok: false, message: 'Sale not found' })
+
+    // A submission that was never approved never touched inventory, so it can just go.
+    if (sale.status === 'pending' || sale.status === 'rejected') {
+      await Promise.all([
+        SaleItem.deleteMany({ sale: sale._id }),
+        Warranty.deleteMany({ sale: sale._id }),
+      ])
+      await Sale.deleteOne({ _id: sale._id })
+      return res.json({ ok: true })
+    }
 
     if (await ReturnCase.exists({ sale: sale._id })) {
       return res.status(400).json({ ok: false, message: 'This invoice has return cases and cannot be deleted' })

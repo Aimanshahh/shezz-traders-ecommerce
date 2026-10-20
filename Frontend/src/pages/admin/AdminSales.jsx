@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Navigate, Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Navigate, Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  Box, Typography, Stack, Button, InputBase, TextField, MenuItem, Snackbar, Alert,
-  CircularProgress, Chip, Card, CardContent, IconButton, Pagination, Tooltip,
+  Box, Typography, Stack, Button, InputBase, TextField, Snackbar, Alert,
+  CircularProgress, Chip, Card, CardContent, IconButton, Pagination, ButtonBase, Skeleton, Divider
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
@@ -18,7 +18,25 @@ import { money, fmtDate, labelOf, SALE_SOURCES } from '../../components/admin/fo
 import { isAdminLoggedIn } from '../../lib/adminAuth.js'
 import { getSales } from '../../services/api.js'
 
-const GRID = { xs: '1fr auto', md: '1fr 1fr 2fr 1fr 1fr 1.2fr 40px' }
+// One shared template for the header and every row, so columns line up exactly.
+const GRID = '118px 108px minmax(0, 1.7fr) 72px 96px 128px minmax(150px, 1fr) 24px'
+
+const PILL_FIELD = {
+  '& .MuiOutlinedInput-root': { borderRadius: 999, height: 40, bgcolor: 'background.paper', fontSize: '0.86rem' },
+  '& .MuiInputLabel-root': { fontSize: '0.84rem' },
+}
+
+const PAY_FILTERS = [
+  { value: 'all', label: 'Any payment' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'paid', label: 'Paid' },
+]
+
+const balanceOf = (s) =>
+  Math.max(
+    0,
+    Number(s.total || 0) - Number(s.returnedAmount || 0) - Number(s.amountPaid || 0) - Number(s.paidLater || 0) + Number(s.refundedAmount || 0)
+  )
 
 const PAY_STYLE = {
   paid: { label: 'Paid', bg: 'rgba(16,185,129,0.12)', color: '#0F8A5F' },
@@ -26,11 +44,37 @@ const PAY_STYLE = {
   unpaid: { label: 'Pending payment', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
 }
 
+const SALE_STATUS_STYLE = {
+  pending: { label: 'Pending review', bg: 'rgba(245,158,11,0.14)', color: '#B45309' },
+  rejected: { label: 'Rejected', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
+  void: { label: 'Void', bg: 'rgba(100,116,139,0.12)', color: '#475569' },
+}
+
+const STATUS_TABS = [
+  { value: 'active', label: 'Invoiced' },
+  { value: 'pending', label: 'Pending review' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'all', label: 'All' },
+]
+
+// A safe local money formatter to prevent 'Rs. ...' if API data is missing
+const safeMoney = (val) => {
+  const num = Number(val)
+  if (isNaN(num)) return 'Rs. 0'
+  return `Rs. ${num.toLocaleString()}`
+}
+
 export default function AdminSales() {
   const navigate = useNavigate()
   const [sales, setSales] = useState([])
   const [totals, setTotals] = useState({ revenue: 0, devices: 0, count: 0 })
   const [pending, setPending] = useState({ count: 0, outstanding: 0, overdue: 0 })
+  const [review, setReview] = useState({ count: 0, value: 0 })
+  const [searchParams] = useSearchParams()
+  const initialStatus = searchParams.get('status')
+  const [status, setStatus] = useState(
+    ['pending', 'rejected', 'completed', 'all'].includes(initialStatus) ? initialStatus : 'active'
+  )
   const [payment, setPayment] = useState('all')
   const [total, setTotal] = useState(0)
   const [pages, setPages] = useState(1)
@@ -53,10 +97,25 @@ export default function AdminSales() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getSales({ q: debouncedSearch, from, to, payment: payment === 'all' ? '' : payment, page, limit: 25 })
+      const data = await getSales({ q: debouncedSearch, from, to, payment: payment === 'all' ? '' : payment, status, page, limit: 25 })
       setSales(data.sales)
-      setTotals(data.totals)
-      setPending(data.pending || { count: 0, outstanding: 0, overdue: 0 })
+      
+      // Defensive fallbacks: If API misses these fields, default to 0
+      setTotals({
+        revenue: data?.totals?.revenue ?? 0,
+        devices: data?.totals?.devices ?? 0,
+        count: data?.totals?.count ?? 0,
+      })
+      setPending({
+        count: data?.pending?.count ?? 0,
+        outstanding: data?.pending?.outstanding ?? 0,
+        overdue: data?.pending?.overdue ?? 0,
+      })
+      setReview({
+        count: data?.review?.count ?? 0,
+        value: data?.review?.value ?? 0,
+      })
+      
       setTotal(data.total)
       setPages(data.pages || 1)
     } catch (err) {
@@ -64,7 +123,7 @@ export default function AdminSales() {
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, from, to, payment, page])
+  }, [debouncedSearch, from, to, payment, status, page])
 
   useEffect(() => {
     load()
@@ -72,29 +131,19 @@ export default function AdminSales() {
 
   if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
 
-  const hasFilters = debouncedSearch || from || to || payment !== 'all'
+  const hasFilters = debouncedSearch || from || to || payment !== 'all' || status !== 'active'
+  const payFilterActive = ['unpaid', 'partial', 'pending'].includes(payment) ? 'pending' : payment
 
   const clearFilters = () => {
     setSearch('')
     setFrom('')
     setTo('')
     setPayment('all')
+    setStatus('active')
     setPage(1)
   }
 
-  const tiles = [
-    { label: 'Sales', value: totals.count, icon: <PointOfSaleIcon />, color: '#0ea5e9' },
-    { label: 'Devices sold', value: totals.devices, icon: <DevicesIcon />, color: '#8b5cf6' },
-    { label: 'Revenue', value: money(totals.revenue), icon: <AttachMoneyIcon />, color: '#10b981' },
-    {
-      label: 'Pending payment',
-      value: money(pending.outstanding),
-      sub: pending.count ? `${pending.count} invoice${pending.count === 1 ? '' : 's'}${pending.overdue ? ` · ${pending.overdue} overdue` : ''}` : 'Nothing pending',
-      icon: <HourglassBottomIcon />,
-      color: '#f59e0b',
-      onClick: () => { setPayment('pending'); setPage(1) },
-    },
-  ]
+  const pendingView = status === 'pending'
 
   return (
     <AdminLayout title="Sales / invoices">
@@ -129,37 +178,96 @@ export default function AdminSales() {
           </Button>
         </Stack>
 
-        {/* Summary Tiles */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
-          {tiles.map((t) => (
-            <Card key={t.label} elevation={0} onClick={t.onClick} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, cursor: t.onClick ? 'pointer' : 'default' }}>
-              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, '&:last-child': { pb: 2 } }}>
-                <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: `${t.color}15`, color: t.color, display: 'flex' }}>
-                  {t.icon}
-                </Box>
-                <Box>
-                  <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'text.secondary' }}>
-                    {t.label}
-                  </Typography>
-                  <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.8rem', lineHeight: 1.2 }}>
-                    {t.value}
-                  </Typography>
-                  {t.sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{t.sub}</Typography>}
-                </Box>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
+        {/* MODERN UNIFIED SUMMARY BAR (Replaces the 4/5 boxes) */}
+        <Card elevation={0} sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', md: 'row' }, 
+          border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 3, 
+          overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.02)'
+        }}>
+          
+          {/* Section 1: Performance */}
+          <Box sx={{ 
+            flex: '1.2', p: 3, 
+            borderBottom: { xs: '1px solid', md: 'none' }, 
+            borderRight: { xs: 'none', md: '1px solid' }, borderColor: 'divider',
+            display: 'flex', alignItems: 'center', gap: 3
+          }}>
+            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(16,185,129,0.1)', color: '#10b981', display: 'flex' }}>
+              <AttachMoneyIcon fontSize="large" />
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'text.secondary', mb: 0.5 }}>
+                {pendingView ? 'Quoted Value' : 'Total Revenue'}
+              </Typography>
+              {loading ? <Skeleton width={120} height={36} /> : (
+                <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.8rem', lineHeight: 1, color: 'text.primary' }}>
+                  {safeMoney(totals?.revenue)}
+                </Typography>
+              )}
+              <Stack direction="row" spacing={1.5} sx={{ mt: 1 }}>
+                <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', fontWeight: 500 }}>
+                  <strong style={{ color: '#111' }}>{totals?.count || 0}</strong> Sales
+                </Typography>
+                <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', fontWeight: 500 }}>
+                  <strong style={{ color: '#111' }}>{totals?.devices || 0}</strong> Devices
+                </Typography>
+              </Stack>
+            </Box>
+          </Box>
 
-        {/* Filters */}
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 3 }} alignItems="flex-start">
-          {/* Search Box */}
+          {/* Section 2: Pending Payments */}
+          <Box 
+            onClick={() => { setPayment('pending'); setStatus('active'); setPage(1) }}
+            sx={{ 
+              flex: '1', p: 3, cursor: 'pointer', transition: 'background-color 0.2s',
+              borderBottom: { xs: '1px solid', md: 'none' }, 
+              borderRight: { xs: 'none', md: '1px solid' }, borderColor: 'divider',
+              '&:hover': { bgcolor: 'action.hover' }
+            }}
+          >
+            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'text.secondary', mb: 0.5 }}>
+              Pending Payment
+            </Typography>
+            {loading ? <Skeleton width={100} height={32} /> : (
+              <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.6rem', lineHeight: 1, color: pending?.outstanding > 0 ? '#f59e0b' : 'text.primary' }}>
+                {safeMoney(pending?.outstanding)}
+              </Typography>
+            )}
+            <Typography sx={{ fontSize: '0.75rem', color: pending?.overdue > 0 ? '#C81E1E' : 'text.secondary', mt: 1, fontWeight: 500 }}>
+              {pending?.count ? `${pending.count} invoice${pending.count === 1 ? '' : 's'}${pending?.overdue ? ` · ${pending.overdue} overdue` : ''}` : 'Nothing pending'}
+            </Typography>
+          </Box>
+
+          {/* Section 3: Awaiting Review */}
+          <Box 
+            onClick={() => { setStatus('pending'); setPayment('all'); setPage(1) }}
+            sx={{ 
+              flex: '1', p: 3, cursor: 'pointer', transition: 'background-color 0.2s',
+              '&:hover': { bgcolor: 'action.hover' }
+            }}
+          >
+            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'text.secondary', mb: 0.5 }}>
+              Awaiting Review
+            </Typography>
+            {loading ? <Skeleton width={60} height={32} /> : (
+              <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.6rem', lineHeight: 1, color: review?.count > 0 ? '#0ea5e9' : 'text.primary' }}>
+                {review?.count || 0}
+              </Typography>
+            )}
+            <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 1, fontWeight: 500 }}>
+              {review?.count ? `${safeMoney(review.value)} at submitted rates` : 'Nothing waiting'}
+            </Typography>
+          </Box>
+        </Card>
+
+        {/* Filters: one toolbar, every control 40px tall and vertically centred */}
+        <Stack direction="row" alignItems="center" useFlexGap flexWrap="wrap" sx={{ mb: 2.5, gap: 1.5 }}>
           <Box
             sx={{
-              flex: 1, display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.5, borderRadius: 999,
+              flex: '1 1 280px', minWidth: 240, display: 'flex', alignItems: 'center', gap: 1, px: 2, height: 40, borderRadius: 999,
               border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
-              '&:focus-within': { borderColor: 'info.main', boxShadow: '0 0 0 3px rgba(14,165,233,0.1)' },
-              width: '100%', height: 40, mt: { xs: 0, md: 2.5 } // Align with date inputs on desktop
+              '&:focus-within': { borderColor: 'info.main', boxShadow: '0 0 0 3px rgba(14,165,233,0.12)' },
             }}
           >
             <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
@@ -167,7 +275,7 @@ export default function AdminSales() {
               placeholder="Search invoice, customer, phone or IMEI…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              sx={{ fontSize: '0.88rem', flex: 1 }}
+              sx={{ fontSize: '0.86rem', flex: 1 }}
             />
             {search && (
               <IconButton size="small" onClick={() => setSearch('')} sx={{ color: 'text.secondary' }}>
@@ -176,60 +284,73 @@ export default function AdminSales() {
             )}
           </Box>
 
-          {/* Date Filters - Fixed Layout */}
-          <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ width: { xs: '100%', md: 'auto' } }}>
-            <Box>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block', ml: 0.5 }}>
-                From
-              </Typography>
-              <TextField
-                size="small"
-                type="date"
-                value={from}
-                onChange={(e) => { setFrom(e.target.value); setPage(1) }}
-                sx={{ width: 140, '& input': { py: 1.1 } }}
-              />
-            </Box>
-            <Box>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block', ml: 0.5 }}>
-                To
-              </Typography>
-              <TextField
-                size="small"
-                type="date"
-                value={to}
-                onChange={(e) => { setTo(e.target.value); setPage(1) }}
-                sx={{ width: 140, '& input': { py: 1.1 } }}
-              />
-            </Box>
-            <Box>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block', ml: 0.5 }}>
-                Payment
-              </Typography>
-              <TextField
-                select
-                size="small"
-                value={payment}
-                onChange={(e) => { setPayment(e.target.value); setPage(1) }}
-                sx={{ width: 160, '& .MuiSelect-select': { py: 1.1 } }}
-              >
-                <MenuItem value="all">All</MenuItem>
-                <MenuItem value="pending">Pending (any)</MenuItem>
-                <MenuItem value="unpaid">Pending payment</MenuItem>
-                <MenuItem value="partial">Part paid</MenuItem>
-                <MenuItem value="paid">Paid</MenuItem>
-              </TextField>
-            </Box>
-            {hasFilters && (
-              <Box sx={{ mt: 2.75 }}>
-                <Tooltip title="Clear filters">
-                  <IconButton onClick={clearFilters} size="small" sx={{ bgcolor: 'action.hover', borderRadius: 1, height: 40, width: 40 }}>
-                    <ClearIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            )}
-          </Stack>
+          {/* Invoice / submission status */}
+          <Box sx={{ display: 'flex', height: 40, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', p: '3px', gap: '2px' }}>
+            {STATUS_TABS.map((t) => {
+              const active = status === t.value
+              return (
+                <ButtonBase
+                  key={t.value}
+                  onClick={() => { setStatus(t.value); setPage(1) }}
+                  sx={{
+                    px: 2, borderRadius: 999, fontSize: '0.8rem', fontWeight: 700,
+                    color: active ? '#fff' : 'text.secondary',
+                    bgcolor: active ? 'info.main' : 'transparent',
+                    transition: 'background-color 0.15s ease, color 0.15s ease',
+                    '&:hover': { bgcolor: active ? 'info.main' : 'action.hover' },
+                  }}
+                >
+                  {t.label}{t.value === 'pending' && review.count ? ` (${review.count})` : ''}
+                </ButtonBase>
+              )
+            })}
+          </Box>
+
+          {/* Payment segmented filter */}
+          <Box sx={{ display: 'flex', height: 40, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', p: '3px', gap: '2px' }}>
+            {PAY_FILTERS.map((f) => {
+              const active = payFilterActive === f.value
+              return (
+                <ButtonBase
+                  key={f.value}
+                  onClick={() => { setPayment(f.value); setPage(1) }}
+                  sx={{
+                    px: 2, borderRadius: 999, fontSize: '0.8rem', fontWeight: 700,
+                    color: active ? '#fff' : 'text.secondary',
+                    bgcolor: active ? 'info.main' : 'transparent',
+                    transition: 'background-color 0.15s ease, color 0.15s ease',
+                    '&:hover': { bgcolor: active ? 'info.main' : 'action.hover' },
+                  }}
+                >
+                  {f.label}
+                </ButtonBase>
+              )
+            })}
+          </Box>
+
+          <TextField
+            size="small"
+            type="date"
+            label="From"
+            value={from}
+            onChange={(e) => { setFrom(e.target.value); setPage(1) }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 160, ...PILL_FIELD }}
+          />
+          <TextField
+            size="small"
+            type="date"
+            label="To"
+            value={to}
+            onChange={(e) => { setTo(e.target.value); setPage(1) }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 160, ...PILL_FIELD }}
+          />
+          {hasFilters && (
+            <Button onClick={clearFilters} startIcon={<ClearIcon />} sx={{ height: 40, borderRadius: 999, textTransform: 'none', fontWeight: 700, color: 'text.secondary' }}>
+              Clear
+            </Button>
+          )}
         </Stack>
 
         {/* Table Area */}
@@ -267,12 +388,21 @@ export default function AdminSales() {
               {/* Header */}
               <Box
                 sx={{
-                  display: { xs: 'none', md: 'grid' }, gridTemplateColumns: GRID, gap: 2, px: 3, py: 1.75,
+                  display: { xs: 'none', md: 'grid' }, gridTemplateColumns: GRID, columnGap: 2, px: 3, py: 1.5, alignItems: 'center',
                   bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider',
                 }}
               >
-                {['Invoice', 'Date', 'Customer', 'Devices', 'Source', 'Total', ''].map((h) => (
-                  <Typography key={h || 'x'} sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'text.secondary' }}>
+                {[
+                  { h: pendingView ? 'Reference' : 'Invoice' },
+                  { h: 'Date' },
+                  { h: 'Customer' },
+                  { h: 'Devices', align: 'center' },
+                  { h: 'Source' },
+                  { h: 'Total', align: 'right' },
+                  { h: 'Status' },
+                  { h: '' },
+                ].map(({ h, align }) => (
+                  <Typography key={h || 'x'} sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'text.secondary', textAlign: align || 'left', pl: h === 'Status' ? 2 : 0 }}>
                     {h}
                   </Typography>
                 ))}
@@ -280,47 +410,71 @@ export default function AdminSales() {
               {/* Rows */}
               {sales.map((s, i) => {
                 const pay = PAY_STYLE[s.paymentStatus] || PAY_STYLE.paid
+                const owing = s.status === 'completed' && s.paymentStatus !== 'paid' ? balanceOf(s) : 0
+                const overdue = owing > 0 && s.dueDate && new Date(s.dueDate) < new Date()
+                const dueLine = owing > 0
+                  ? `${money(owing)} due${s.dueDate ? ` · ${overdue ? 'overdue since' : 'by'} ${fmtDate(s.dueDate)}` : ''}`
+                  : ''
+                const saleStatus = s.status && s.status !== 'completed' ? SALE_STATUS_STYLE[s.status] : null
+                const statusChip = saleStatus ? (
+                  <Chip label={saleStatus.label} size="small" sx={{ bgcolor: saleStatus.bg, color: saleStatus.color, fontWeight: 700, fontSize: '0.68rem', height: 22, borderRadius: 999 }} />
+                ) : (
+                  <Chip label={pay.label} size="small" sx={{ bgcolor: pay.bg, color: pay.color, fontWeight: 700, fontSize: '0.68rem', height: 22, borderRadius: 999 }} />
+                )
                 return (
                   <Box
                     key={s._id}
-                    onClick={() => navigate(`/admin/sales/${s._id}`)}
+                    onClick={() => navigate(s.status === 'pending' ? `/admin/sales/${s._id}/review` : `/admin/sales/${s._id}`)}
                     sx={{
-                      display: 'grid', gridTemplateColumns: GRID, gap: 2, alignItems: 'center',
-                      px: { xs: 2, md: 3 }, py: 1.75, cursor: 'pointer',
+                      px: { xs: 2, md: 3 }, py: { xs: 1.5, md: 1.75 }, cursor: 'pointer',
                       borderBottom: i === sales.length - 1 ? 'none' : '1px solid', borderColor: 'divider',
-                      '&:hover': { bgcolor: 'action.hover', '& .chevron': { transform: 'translateX(4px)' } },
+                      '&:hover': { bgcolor: 'action.hover', '& .chevron': { transform: 'translateX(4px)', color: 'info.main' } },
                       transition: 'background-color 0.2s ease',
                     }}
                   >
-                    <Box>
+                    {/* Desktop row */}
+                    <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: GRID, columnGap: 2, alignItems: 'center' }}>
                       <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem' }}>{s.invoiceNumber}</Typography>
-                      <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', display: { xs: 'block', md: 'none' } }}>
-                        {s.customerSnapshot?.name} · {s.itemCount} devices · {fmtDate(s.saleDate)}
-                      </Typography>
-                    </Box>
-                    <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', display: { xs: 'none', md: 'block' } }}>
-                      {fmtDate(s.saleDate)}
-                    </Typography>
-                    <Box sx={{ display: { xs: 'none', md: 'block' }, minWidth: 0 }}>
-                      <Typography sx={{ fontSize: '0.88rem', fontWeight: 600 }}>{s.customerSnapshot?.name}</Typography>
-                      <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary' }}>{s.customerSnapshot?.phone}</Typography>
-                    </Box>
-                    <Typography sx={{ fontSize: '0.84rem', display: { xs: 'none', md: 'block' } }}>{s.itemCount}</Typography>
-                    <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', display: { xs: 'none', md: 'block' } }}>
-                      {labelOf(SALE_SOURCES, s.source)}
-                    </Typography>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 700, fontSize: '1rem', whiteSpace: 'nowrap' }}>
+                      <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>{fmtDate(s.saleDate)}</Typography>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography noWrap sx={{ fontSize: '0.88rem', fontWeight: 600 }}>{s.customerSnapshot?.name}</Typography>
+                        <Typography noWrap sx={{ fontSize: '0.74rem', color: 'text.secondary' }}>{s.customerSnapshot?.phone}</Typography>
+                      </Box>
+                      <Typography sx={{ fontSize: '0.86rem', textAlign: 'center' }}>{s.itemCount}</Typography>
+                      <Typography noWrap sx={{ fontSize: '0.84rem', color: 'text.secondary' }}>{labelOf(SALE_SOURCES, s.source)}</Typography>
+                      <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 700, fontSize: '1.05rem', whiteSpace: 'nowrap', textAlign: 'right' }}>
                         {money(s.total)}
                       </Typography>
-                      <Chip label={pay.label} size="small" sx={{ bgcolor: pay.bg, color: pay.color, fontWeight: 700, fontSize: '0.66rem', height: 20, borderRadius: 999 }} />
-                      {s.paymentStatus !== 'paid' && s.dueDate && (
-                        <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, whiteSpace: 'nowrap', color: new Date(s.dueDate) < new Date() ? '#C81E1E' : 'text.secondary' }}>
-                          {new Date(s.dueDate) < new Date() ? 'Overdue · ' : 'Due '}{fmtDate(s.dueDate)}
+                      <Box sx={{ minWidth: 0, pl: 2 }}>
+                        {statusChip}
+                        {dueLine && (
+                          <Typography noWrap sx={{ fontSize: '0.7rem', fontWeight: 600, mt: 0.4, color: overdue ? '#C81E1E' : 'text.secondary' }}>
+                            {dueLine}
+                          </Typography>
+                        )}
+                      </Box>
+                      <ChevronRightIcon className="chevron" sx={{ color: 'text.secondary', transition: 'transform 0.2s ease, color 0.2s ease' }} />
+                    </Box>
+
+                    {/* Mobile row */}
+                    <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem' }}>{s.invoiceNumber}</Typography>
+                        <Typography noWrap sx={{ fontSize: '0.78rem', fontWeight: 600 }}>{s.customerSnapshot?.name}</Typography>
+                        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>
+                          {s.itemCount} {s.itemCount === 1 ? 'device' : 'devices'} · {fmtDate(s.saleDate)}
                         </Typography>
-                      )}
-                    </Stack>
-                    <ChevronRightIcon className="chevron" sx={{ color: 'text.secondary', display: { xs: 'none', md: 'block' }, transition: 'transform 0.2s ease' }} />
+                      </Box>
+                      <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                        <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 700, fontSize: '1.05rem', whiteSpace: 'nowrap' }}>{money(s.total)}</Typography>
+                        {statusChip}
+                        {dueLine && (
+                          <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, mt: 0.4, color: overdue ? '#C81E1E' : 'text.secondary' }}>
+                            {`${money(owing)} due${s.dueDate ? ` · ${overdue ? 'overdue' : fmtDate(s.dueDate)}` : ''}`}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
                   </Box>
                 )
               })}

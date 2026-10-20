@@ -6,26 +6,37 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 const TOKEN_KEY = 'shezz_admin_token'
 const ADMIN_KEY = 'shezz_admin_user'
+const STAFF_TOKEN_KEY = 'shezz_staff_token'
+const STAFF_USER_KEY = 'shezz_staff_user'
+
+const onStaffPage = () =>
+  typeof window !== 'undefined' && window.location.pathname.startsWith('/staff')
 
 function getToken() {
-  return (
-    localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY)
-  )
+  // Each side reads its own session, so an admin and a salesperson can be signed
+  // in on the same machine without sending the wrong token.
+  const key = onStaffPage() ? STAFF_TOKEN_KEY : TOKEN_KEY
+  return localStorage.getItem(key) || sessionStorage.getItem(key)
 }
 
 // ─── Handle 401 — force logout ────────────────────────
 function handleUnauthorized() {
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(ADMIN_KEY)
-  sessionStorage.removeItem(TOKEN_KEY)
-  sessionStorage.removeItem(ADMIN_KEY)
+  const staff = onStaffPage()
+  const tokenKey = staff ? STAFF_TOKEN_KEY : TOKEN_KEY
+  const userKey = staff ? STAFF_USER_KEY : ADMIN_KEY
 
-  // Redirect to admin login (only if not already there)
-  if (
-    typeof window !== 'undefined' &&
-    !window.location.pathname.startsWith('/admin') ||
-    window.location.pathname === '/admin/dashboard'
-  ) {
+  localStorage.removeItem(tokenKey)
+  localStorage.removeItem(userKey)
+  sessionStorage.removeItem(tokenKey)
+  sessionStorage.removeItem(userKey)
+
+  if (typeof window === 'undefined') return
+  const path = window.location.pathname
+  if (staff) {
+    if (path !== '/staff') window.location.href = '/staff'
+    return
+  }
+  if (path !== '/admin' || path === '/admin/dashboard') {
     window.location.href = '/admin'
   }
 }
@@ -405,6 +416,11 @@ export async function getCustomer(id) {
   return request(`/customers/${id}`) // { customer, stats, sales, devices }
 }
 
+export async function createCustomer(payload) {
+  const data = await request('/customers', { method: 'POST', body: JSON.stringify(payload) })
+  return data.customer
+}
+
 export async function updateCustomer(id, payload) {
   const data = await request(`/customers/${id}`, {
     method: 'PATCH',
@@ -521,4 +537,88 @@ export async function getAdminReport(params = {}) {
   const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
   const qs = new URLSearchParams(clean).toString()
   return request(`/reports/summary${qs ? `?${qs}` : ''}`)
+}
+// ══════════════════════════════════════════════════════
+//  SALESPERSON  (/api/staff)
+//  Responses here never carry prices, totals or customer balances.
+// ══════════════════════════════════════════════════════
+
+export async function getStaffCustomers(params = {}) {
+  const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+  const qs = new URLSearchParams(clean).toString()
+  return request(`/staff/customers${qs ? `?${qs}` : ''}`)
+}
+
+export async function getStaffProducts() {
+  const data = await request('/staff/products')
+  return data.products
+}
+
+export async function staffScan(code) {
+  return request('/staff/scan', { method: 'POST', body: JSON.stringify({ code }) })
+}
+
+export async function staffRegisterDevice(payload) {
+  const data = await request('/staff/devices', { method: 'POST', body: JSON.stringify(payload) })
+  return data.device
+}
+
+export async function createStaffSale(payload) {
+  const data = await request('/staff/sales', { method: 'POST', body: JSON.stringify(payload) })
+  return data.sale
+}
+
+export async function getStaffSales() {
+  const data = await request('/staff/sales')
+  return data.sales
+}
+
+export async function getStaffSale(id) {
+  return request(`/staff/sales/${id}`)
+}
+
+// ══════════════════════════════════════════════════════
+//  STAFF ACCOUNTS, CUSTOMER RATES, SALE REVIEW  (admin)
+// ══════════════════════════════════════════════════════
+
+export async function getAdminUsers() {
+  const data = await request('/admin/users')
+  return data.users
+}
+
+export async function createAdminUser(payload) {
+  const data = await request('/admin/users', { method: 'POST', body: JSON.stringify(payload) })
+  return data.user
+}
+
+export async function updateAdminUser(id, payload) {
+  const data = await request(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+  return data.user
+}
+
+export async function deleteAdminUser(id) {
+  return request(`/admin/users/${id}`, { method: 'DELETE' })
+}
+
+export async function saveCustomerPrices(id, prices) {
+  const data = await request(`/customers/${id}/prices`, {
+    method: 'PUT',
+    body: JSON.stringify({ prices }),
+  })
+  return data.prices
+}
+
+export async function approveSale(id, payload = {}) {
+  const data = await request(`/sales/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data.sale
+}
+
+export async function rejectSale(id, reason = '') {
+  return request(`/sales/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
 }

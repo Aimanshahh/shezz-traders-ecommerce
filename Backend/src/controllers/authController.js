@@ -1,11 +1,18 @@
 import jwt from 'jsonwebtoken'
 import Admin from '../models/Admin.js'
 
-function signToken(adminId) {
-  return jwt.sign({ id: adminId }, process.env.JWT_SECRET, {
+function signToken(admin) {
+  return jwt.sign({ id: admin._id, role: admin.role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES || '7d',
   })
 }
+
+const publicUser = (admin) => ({
+  id: admin._id,
+  email: admin.email,
+  name: admin.name,
+  role: admin.role,
+})
 
 // POST /api/admin/login
 export async function login(req, res, next) {
@@ -18,7 +25,9 @@ export async function login(req, res, next) {
         .json({ ok: false, message: 'Email and password are required' })
     }
 
-    const admin = await Admin.findOne({ email: email.toLowerCase() })
+    const admin = await Admin.findOne({
+      email: String(email).toLowerCase().trim(),
+    })
     if (!admin) {
       return res
         .status(401)
@@ -32,17 +41,22 @@ export async function login(req, res, next) {
         .json({ ok: false, message: 'Invalid email or password' })
     }
 
-    const token = signToken(admin._id)
+    if (admin.isActive === false) {
+      return res.status(403).json({
+        ok: false,
+        message: 'This account has been deactivated. Contact the admin.',
+      })
+    }
+
+    admin.lastLoginAt = new Date()
+    await admin.save()
+
+    const token = signToken(admin)
 
     res.json({
       ok: true,
       token,
-      admin: {
-        id: admin._id,
-        email: admin.email,
-        name: admin.name,
-        role: admin.role,
-      },
+      admin: publicUser(admin),
     })
   } catch (err) {
     next(err)
@@ -53,11 +67,6 @@ export async function login(req, res, next) {
 export async function getMe(req, res) {
   res.json({
     ok: true,
-    admin: {
-      id: req.admin._id,
-      email: req.admin.email,
-      name: req.admin.name,
-      role: req.admin.role,
-    },
+    admin: publicUser(req.admin),
   })
 }

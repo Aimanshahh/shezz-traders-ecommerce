@@ -8,8 +8,7 @@ import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined'
 import Papa from 'papaparse'
 import readXlsxFile from 'read-excel-file'
-import AdminLayout from './AdminLayout.jsx'
-import { isAdminLoggedIn } from '../../lib/adminAuth.js'
+import { ADMIN_SHELL } from '../../lib/stockShell.js'
 import { getProducts, previewDeviceImport, importDevices } from '../../services/api.js'
 
 const DEVICES_PER_BOX = 10
@@ -34,7 +33,8 @@ function extractFromRows(rows) {
   return { imeis, boxes, hasHeader }
 }
 
-export default function AdminDeviceImport() {
+export default function AdminDeviceImport({ shell = ADMIN_SHELL }) {
+  const { Layout, base, isLoggedIn, loginTo } = shell
   const fileRef = useRef(null)
   const [products, setProducts] = useState([])
   const [productId, setProductId] = useState('')
@@ -56,7 +56,7 @@ export default function AdminDeviceImport() {
       .catch(() => {})
   }, [])
 
-  if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
+  if (!isLoggedIn()) return <Navigate to={loginTo} replace />
 
   const resetResult = () => {
     setPreview(null)
@@ -195,11 +195,11 @@ export default function AdminDeviceImport() {
   const s = preview?.summary
 
   return (
-    <AdminLayout title="Bulk import">
+    <Layout title="Bulk import">
       <Box sx={{ maxWidth: 900, mx: 'auto' }}>
         <Button
           component={RouterLink}
-          to="/admin/devices"
+          to={`${base}/devices`}
           startIcon={<ArrowBackIcon />}
           sx={{ textTransform: 'none', color: 'text.secondary', mb: 2 }}
         >
@@ -251,7 +251,7 @@ export default function AdminDeviceImport() {
             <Stack direction="row" spacing={1.5} justifyContent="center">
               <Button
                 component={RouterLink}
-                to="/admin/devices"
+                to={`${base}/devices`}
                 variant="contained"
                 color="info"
                 sx={{ borderRadius: 999, fontWeight: 700, px: 3 }}
@@ -481,7 +481,7 @@ export default function AdminDeviceImport() {
           </Stack>
         )}
       </Box>
-    </AdminLayout>
+    </Layout>
   )
 }
 

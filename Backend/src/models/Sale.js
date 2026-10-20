@@ -4,9 +4,18 @@ export const SALE_SOURCES = ['offline', 'whatsapp', 'phone', 'dealer', 'other']
 export const PAYMENT_METHODS = ['cash', 'bank_transfer', 'jazzcash', 'easypaisa', 'cheque', 'other']
 export const PAYMENT_STATUSES = ['paid', 'partial', 'unpaid']
 
+// pending  → submitted by a salesperson, waiting for the admin to review it.
+// completed→ reviewed (or an admin's own sale) and now a real invoice.
+// rejected → reviewed and refused; the devices were never taken out of inventory.
+export const SALE_STATUSES = ['completed', 'void', 'pending', 'rejected']
+
 const saleSchema = new mongoose.Schema(
   {
+    // For a completed sale this is the invoice number. A pending sale gets a
+    // provisional SALE-xxxx reference that is replaced when the admin approves it.
     invoiceNumber: { type: String, required: true, unique: true, index: true },
+    // Permanent reference that never changes, so a submission can always be traced.
+    saleNumber: { type: String, default: '', index: true },
     customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true, index: true },
     // Copied at sale time so an invoice never changes if the customer is edited later.
     customerSnapshot: {
@@ -37,6 +46,15 @@ const saleSchema = new mongoose.Schema(
     saleDate: { type: Date, default: Date.now, index: true },
     soldBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
     soldByName: { type: String, default: '' },
+    // Salesperson submission trail. Kept even after approval so the admin can audit it.
+    salesperson: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null, index: true },
+    salespersonName: { type: String, default: '' },
+    submittedAt: { type: Date, default: null },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
+    reviewedByName: { type: String, default: '' },
+    reviewedAt: { type: Date, default: null },
+    rejectionReason: { type: String, default: '' },
+    reviewNotes: { type: String, default: '' },
     warrantyMonths: { type: Number, default: 6 },
     notes: { type: String, default: '' },
     invoiceEmail: {
@@ -45,7 +63,7 @@ const saleSchema = new mongoose.Schema(
       savedAt: { type: Date, default: null },
       sentAt: { type: Date, default: null },
     },
-    status: { type: String, enum: ['completed', 'void'], default: 'completed' },
+    status: { type: String, enum: SALE_STATUSES, default: 'completed', index: true },
   },
   { timestamps: true }
 )

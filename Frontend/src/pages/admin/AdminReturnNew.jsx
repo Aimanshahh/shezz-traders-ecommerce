@@ -2,16 +2,16 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, Box, Button, CircularProgress, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import AdminLayout from './AdminLayout.jsx'
 import IMEIScanner from './IMEIScanner.jsx'
 import DeviceStatusChip from './DeviceStatusChip.jsx'
-import { isAdminLoggedIn } from '../../lib/adminAuth.js'
+import { ADMIN_SHELL } from '../../lib/stockShell.js'
 import { lookupReturnDevice, openReturnCase } from '../../services/api.js'
 import { fmtDate } from '../../components/admin/format.js'
 
 const card = { p: { xs: 2.5, md: 3 }, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1 }
 
-export default function AdminReturnNew() {
+export default function AdminReturnNew({ shell = ADMIN_SHELL }) {
+  const { Layout, base, isLoggedIn, loginTo } = shell
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const initialImei = searchParams.get('imei') || ''
@@ -45,7 +45,7 @@ export default function AdminReturnNew() {
     return () => { alive = false }
   }, [initialImei])
 
-  if (!isAdminLoggedIn()) return <Navigate to="/admin" replace />
+  if (!isLoggedIn()) return <Navigate to={loginTo} replace />
 
   const handleOpen = async () => {
     if (!result?.device?.imei) return
@@ -53,7 +53,7 @@ export default function AdminReturnNew() {
     setError('')
     try {
       const created = await openReturnCase({ imei: result.device.imei, type, reason, notes })
-      navigate(`/admin/returns/${created._id}`)
+      navigate(`${base}/returns/${created._id}`)
     } catch (err) {
       setError(err?.message || 'Could not open this case.')
     } finally {
@@ -64,9 +64,9 @@ export default function AdminReturnNew() {
   const warrantyActive = ['active', 'expiring_soon'].includes(result?.warranty?.state)
 
   return (
-    <AdminLayout title="Open return case">
+    <Layout title="Open return case">
       <Box sx={{ maxWidth: 900, mx: 'auto' }}>
-        <Button component={RouterLink} to="/admin/returns" startIcon={<ArrowBackIcon />} sx={{ mb: 2, textTransform: 'none', color: 'text.secondary' }}>Back to cases</Button>
+        <Button component={RouterLink} to={`${base}/returns`} startIcon={<ArrowBackIcon />} sx={{ mb: 2, textTransform: 'none', color: 'text.secondary' }}>Back to cases</Button>
         <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.8rem', mb: 0.5 }}>Open a return or warranty case</Typography>
         <Typography sx={{ color: 'text.secondary', fontSize: '0.86rem', mb: 3 }}>Scan a sold device to load its original invoice, customer and warranty.</Typography>
 
@@ -94,7 +94,7 @@ export default function AdminReturnNew() {
                 <Info label="Warranty" value={result.warranty ? `${result.warranty.state.replace('_', ' ')} · until ${fmtDate(result.warranty.endDate)}` : 'No warranty record'} />
               </Box>
               {result.openCase ? (
-                <Alert severity="warning" action={<Button component={RouterLink} to={`/admin/returns/${result.openCase._id}`} size="small">Open {result.openCase.caseNumber}</Button>}>
+                <Alert severity="warning" action={<Button component={RouterLink} to={`${base}/returns/${result.openCase._id}`} size="small">Open {result.openCase.caseNumber}</Button>}>
                   This device already has an open case.
                 </Alert>
               ) : result.device.status !== 'sold' ? (
@@ -127,7 +127,7 @@ export default function AdminReturnNew() {
           )}
         </Stack>
       </Box>
-    </AdminLayout>
+    </Layout>
   )
 }
 

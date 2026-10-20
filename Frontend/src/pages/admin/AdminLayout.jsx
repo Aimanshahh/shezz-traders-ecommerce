@@ -17,6 +17,7 @@ import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined'
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined'
 import AssignmentReturnOutlinedIcon from '@mui/icons-material/AssignmentReturnOutlined'
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined'
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined'
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined'
 import SearchIcon from '@mui/icons-material/Search'
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined'
@@ -36,6 +37,7 @@ const CRM_ITEMS = [
   { label: 'Boxes & cartons', to: '/admin/boxes', icon: ViewInArOutlinedIcon, prefix: true },
   { label: 'Sales / invoices', to: '/admin/sales', icon: PointOfSaleOutlinedIcon, prefix: true },
   { label: 'Customers & ledger', to: '/admin/customers', icon: PeopleAltOutlinedIcon, prefix: true },
+  { label: 'Salespeople', to: '/admin/staff', icon: BadgeOutlinedIcon, prefix: true },
   { label: 'CRM settings', to: '/admin/crm-settings', icon: TuneOutlinedIcon, prefix: true },
   { label: 'Returns & warranty', to: '/admin/returns', icon: AssignmentReturnOutlinedIcon, prefix: true },
 ]

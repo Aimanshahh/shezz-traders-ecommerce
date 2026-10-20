@@ -1,9 +1,9 @@
 import express from 'express'
-import { protect } from '../middleware/auth.js'
+import { protect, adminOnly } from '../middleware/auth.js'
 import { getCrmSettings, saveCrmSettings } from '../controllers/crmSettingsController.js'
 
 const router = express.Router()
-router.use(protect)
+router.use(protect, adminOnly)
 router.get('/', getCrmSettings)
 router.put('/', saveCrmSettings)
 

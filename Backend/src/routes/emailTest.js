@@ -1,10 +1,11 @@
 import express from 'express'
+import { protect, adminOnly } from '../middleware/auth.js'
 import { sendOrderConfirmation } from '../services/emailService.js'
 
 const router = express.Router()
 
 // GET /api/test-email
-router.get('/', async (req, res) => {
+router.get('/', protect, adminOnly, async (req, res) => {
   const testOrder = {
     orderNumber: 'SH-TEST-0001',
     customer: {

@@ -24,7 +24,13 @@ export async function saleInfoFor(deviceIds) {
 
   const items = await SaleItem.find({ device: { $in: deviceIds } })
     .sort({ createdAt: -1 })
-    .populate({ path: 'sale', select: 'invoiceNumber saleDate customer customerSnapshot soldByName' })
+    // A pending or rejected submission is not a sale yet, so never label a device
+    // with it. Only approved invoices (and voided ones) count as its sale.
+    .populate({
+      path: 'sale',
+      match: { status: { $in: ['completed', 'void'] } },
+      select: 'invoiceNumber saleDate customer customerSnapshot soldByName',
+    })
     .lean()
   const warranties = await Warranty.find({ device: { $in: deviceIds } }).sort({ createdAt: -1 }).lean()
 

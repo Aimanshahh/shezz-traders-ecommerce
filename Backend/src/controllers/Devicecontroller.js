@@ -8,6 +8,7 @@ import { checkBoxCode, normalizeBoxCode } from '../utils/boxCode.js'
 import { summarise, stateOf } from '../utils/boxSummary.js'
 import { saleInfoFor } from '../utils/saleInfo.js'
 import { chainFor } from '../utils/Chain.js'
+import { isSalespersonRole } from '../utils/roles.js'
 import SaleItem from '../models/SaleItem.js'
 import Warranty from '../models/Warranty.js'
 import Transfer from '../models/Transfer.js'
@@ -21,6 +22,18 @@ const actor = (req) => ({
   performedBy: req.admin?._id || null,
   performedByName: req.admin?.name || req.admin?.username || req.admin?.email || '',
 })
+
+// Salespeople maintain stock through these same endpoints but must never see prices,
+// so the unit price carried by a sale record is removed before it is sent back.
+function saleFor(req, info, deviceId) {
+  const sale = info.get(String(deviceId)) || null
+  if (!sale) return null
+  if (isSalespersonRole(req.admin?.role)) {
+    const { unitPrice, ...rest } = sale
+    return rest
+  }
+  return sale
+}
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -156,7 +169,7 @@ export async function listDevices(req, res, next) {
     const soldIds = devices.filter((d) => d.status === 'sold').map((d) => d._id)
     const info = await saleInfoFor(soldIds)
     devices.forEach((d) => {
-      d.sale = info.get(String(d._id)) || null
+      d.sale = saleFor(req, info, d._id)
     })
     res.json({ ok: true, devices, total, page, pages: Math.ceil(total / limit) })
   } catch (err) {
@@ -173,7 +186,29 @@ export async function getStats(req, res, next) {
       stats[r._id] = r.count
       total += r.count
     })
-    res.json({ ok: true, stats: { total, ...stats } })
+
+    // Aggregate device counts grouped by their Product ID for the breakdown table
+    const breakdown = await Device.aggregate([
+      {
+        $group: {
+          _id: '$product',
+          total: { $sum: 1 },
+          sold: { $sum: { $cond: [{ $eq: ['$status', 'sold'] }, 1, 0] } },
+          available: { $sum: { $cond: [{ $eq: ['$status', 'available'] }, 1, 0] } },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          productId: '$_id',
+          total: 1,
+          sold: 1,
+          available: 1,
+        },
+      },
+    ])
+
+    res.json({ ok: true, stats: { total, ...stats, breakdown } })
   } catch (err) {
     next(err)
   }
@@ -205,7 +240,7 @@ export async function getDevice(req, res, next) {
           ? { _id: last.toId, name: last.toName, phone: last.toPhone }
           : { _id: last.customerId, name: last.customerName }
     }
-    res.json({ ok: true, device, history, sale: info.get(String(device._id)) || null, chain, holder, openCase })
+    res.json({ ok: true, device, history, sale: saleFor(req, info, device._id), chain, holder, openCase })
   } catch (err) {
     next(err)
   }
@@ -444,7 +479,7 @@ export async function scanDevice(req, res, next) {
       canSell: device.status === 'available',
       message: messages[device.status] || device.status,
       device,
-      sale: device.status === 'available' ? null : info.get(String(device._id)) || null,
+      sale: device.status === 'available' ? null : saleFor(req, info, device._id),
     })
   } catch (err) {
     next(err)

@@ -3,7 +3,8 @@ import mongoose from 'mongoose'
 const customerSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    phone: { type: String, required: true, trim: true, index: true },
+    // Optional: the name identifies a customer; the phone is useful but not required.
+    phone: { type: String, default: '', trim: true, index: true },
     city: { type: String, default: '', trim: true },
     address: { type: String, default: '', trim: true },
     email: { type: String, default: '', trim: true },
