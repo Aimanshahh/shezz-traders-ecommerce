@@ -5,7 +5,8 @@ import { protect, adminOnly } from '../middleware/auth.js'
 const router = express.Router()
 
 function buildUrl(req, filename) {
-  return `${req.protocol}://${req.get('host')}/uploads/${filename}`
+  // FIX: Return relative path instead of hardcoding localhost:5000
+  return `/uploads/${filename}`
 }
 
 // ── POST /api/upload — single image (kept for backward compat)
@@ -47,4 +48,4 @@ router.post('/multiple', protect, adminOnly, (req, res) => {
   })
 })
 
-export default router
+export default routera
