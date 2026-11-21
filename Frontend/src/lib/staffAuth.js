@@ -4,7 +4,7 @@
 // logins never overwrite each other in the same browser.
 // ─────────────────────────────────────────────────────
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 const TOKEN_KEY = 'shezz_staff_token'
 const USER_KEY = 'shezz_staff_user'
