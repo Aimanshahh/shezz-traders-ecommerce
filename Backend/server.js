@@ -20,6 +20,7 @@ import returnRoutes from './src/routes/returns.js'
 import reportRoutes from './src/routes/reports.js'
 import adminUserRoutes from './src/routes/adminUsers.js'
 import staffRoutes from './src/routes/staff.js'
+import integrationRoutes from './src/routes/integrations.js'
 
 
 dotenv.config()
@@ -97,6 +98,7 @@ app.use('/api/transfers', transferRoutes)
 app.use('/api/returns', returnRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/staff', staffRoutes)
+app.use('/api/integrations', integrationRoutes)
 
 // ─── 404
 app.use((req, res) => {
