@@ -41,7 +41,7 @@ export default function AdminBoxes({ shell = ADMIN_SHELL }) {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [products, setProducts] = useState([])
-  const [cartons, setCartons] = useState([])
+  const [, setCartons] = useState([])
   const [form, setForm] = useState({ type: 'box', code: '', productId: '', parentId: '', expectedCount: '' })
   const [creating, setCreating] = useState(false)
 

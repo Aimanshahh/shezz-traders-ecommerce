@@ -3,12 +3,11 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import {
   Box, Container, Grid, Typography, TextField, Button, Stack,
   Divider, Radio, RadioGroup, FormControlLabel, CircularProgress,
-  Snackbar, Alert, Chip,
+  Snackbar, Alert,
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined'
-import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
 import PhoneIphoneOutlinedIcon from '@mui/icons-material/PhoneIphoneOutlined'
 import { useCart } from '../context/CartContext.jsx'

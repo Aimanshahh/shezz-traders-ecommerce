@@ -4,8 +4,6 @@ import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined'
 import SmartphoneOutlinedIcon from '@mui/icons-material/SmartphoneOutlined'
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
-import FacebookIcon from '@mui/icons-material/Facebook'
-import InstagramIcon from '@mui/icons-material/Instagram'
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined'
 import { BRAND } from '../../theme/theme.js'
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom'
+import { useParams, Link as RouterLink } from 'react-router-dom'
 import {
   Box, Container, Typography, Stack, Button, Divider, Chip,
   CircularProgress,
@@ -18,7 +18,6 @@ const PAYMENT_LABELS = {
 
 export default function OrderConfirmation() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
 

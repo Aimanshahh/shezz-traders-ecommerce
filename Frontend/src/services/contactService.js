@@ -63,5 +63,7 @@ export function getContactSubmissions() {
 export function clearContactSubmissions() {
   try {
     localStorage.removeItem(STORAGE_KEY)
-  } catch {}
+  } catch {
+    // storage is unavailable (private mode); nothing to clear
+  }
 }

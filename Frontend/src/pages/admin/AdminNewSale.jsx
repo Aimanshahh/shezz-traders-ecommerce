@@ -205,7 +205,7 @@ export default function AdminNewSale() {
       const rateMap = {}
       ;(fullCust.prices || []).forEach(p => { rateMap[p.product] = p.price })
       setCustomerRates(rateMap)
-    } catch (e) {
+    } catch {
       setCustomerRates({})
     }
   }

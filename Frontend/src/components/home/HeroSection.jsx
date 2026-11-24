@@ -1,7 +1,6 @@
 import { Box, Container, Typography, Button, Stack } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import GpsFixedIcon from '@mui/icons-material/GpsFixed'
-import ShieldIcon from '@mui/icons-material/Shield'
 import FenceIcon from '@mui/icons-material/Fence'
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew'
 import DevicesIcon from '@mui/icons-material/Devices'

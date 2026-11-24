@@ -2,17 +2,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { Navigate, Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Box, Typography, Stack, Button, InputBase, TextField, Snackbar, Alert,
-  CircularProgress, Chip, Card, CardContent, IconButton, Pagination, ButtonBase, Skeleton, Divider
+  CircularProgress, Chip, Card, IconButton, Pagination, ButtonBase, Skeleton
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import ClearIcon from '@mui/icons-material/Clear'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
-import PointOfSaleIcon from '@mui/icons-material/PointOfSale'
-import DevicesOutlinedIcon from '@mui/icons-material/Devices'
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
-import HourglassBottomIcon from '@mui/icons-material/HourglassBottom'
 import AdminLayout from './AdminLayout.jsx'
 import { money, fmtDate, labelOf, SALE_SOURCES } from '../../components/admin/format.js'
 import { isAdminLoggedIn } from '../../lib/adminAuth.js'

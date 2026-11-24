@@ -75,7 +75,7 @@ export default function AdminSaleReview() {
           try {
             const fullCust = await getCustomer(custId)
             ;(fullCust.prices || []).forEach(p => { rateMap[p.product] = p.price })
-          } catch (e) { /* ignore */ }
+          } catch { /* ignore */ }
         }
 
         const next = {}

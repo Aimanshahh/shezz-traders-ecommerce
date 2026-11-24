@@ -1,4 +1,4 @@
-import { Box, List, ListItemButton, ListItemText, Typography, Stack } from '@mui/material'
+import { Box, List, ListItemButton, ListItemText, Typography } from '@mui/material'
 
 export default function CategorySidebar({ selected, onSelect, categories = [] }) {
   return (

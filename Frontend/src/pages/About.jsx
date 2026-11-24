@@ -1,4 +1,4 @@
-import { Box, Container, Grid, Typography, Stack } from '@mui/material'
+import { Box, Container, Grid, Typography } from '@mui/material'
 import GpsFixedIcon from '@mui/icons-material/GpsFixed'
 import ShieldIcon from '@mui/icons-material/Shield'
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined'
