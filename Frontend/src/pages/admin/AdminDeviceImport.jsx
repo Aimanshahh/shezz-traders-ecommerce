@@ -6,12 +6,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined'
-<<<<<<< HEAD
-import Papa from 'papaparse'
-// FIX: Added /browser to prevent Vite build error
-=======
 import Papa from 'papaparse' 
->>>>>>> origin/server-cors-fix
 import readXlsxFile from 'read-excel-file/browser'
 import { ADMIN_SHELL } from '../../lib/stockShell.js'
 import { getProducts, previewDeviceImport, importDevices } from '../../services/api.js'

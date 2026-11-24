@@ -5,10 +5,6 @@ import { protect, adminOnly } from '../middleware/auth.js'
 const router = express.Router()
 
 function buildUrl(req, filename) {
-<<<<<<< HEAD
-  // FIX: Return relative path instead of hardcoding localhost:5000
-=======
->>>>>>> origin/server-cors-fix
   return `/uploads/${filename}`
 }
 
@@ -51,8 +47,4 @@ router.post('/multiple', protect, adminOnly, (req, res) => {
   })
 })
 
-<<<<<<< HEAD
-export default routera
-=======
 export default router
->>>>>>> origin/server-cors-fix
