@@ -20,13 +20,20 @@ const adminName = (req) => req.admin?.name || req.admin?.username || req.admin?.
 async function recomputeSale(saleId, session) {
   const sale = await Sale.findById(saleId).session(session)
   if (!sale) return
+  // One command at a time: a MongoDB session cannot run parallel operations inside
+  // a transaction.
   const rows = await Payment.aggregate([
     { $match: { voided: false, 'allocations.sale': sale._id } },
     { $unwind: '$allocations' },
     { $match: { 'allocations.sale': sale._id } },
     { $group: { _id: null, sum: { $sum: '$allocations.amount' } } },
   ]).session(session)
+  const discountRows = await Payment.aggregate([
+    { $match: { voided: false, discountSale: sale._id, discount: { $gt: 0 } } },
+    { $group: { _id: null, sum: { $sum: '$discount' } } },
+  ]).session(session)
   sale.paidLater = round2(rows[0]?.sum || 0)
+  sale.discountLater = round2(discountRows[0]?.sum || 0)
   const paid = sale.amountPaid + sale.paidLater
   sale.paymentStatus = outstandingOf(sale) <= 0.001 ? 'paid' : paid <= 0 ? 'unpaid' : 'partial'
   await sale.save({ session })
@@ -40,8 +47,9 @@ async function ensureCollections() {
 }
 
 // POST /api/customers/:id/payments
-// { amount, method?, date?, note?, saleId? }  Without saleId it is applied to the oldest
-// unpaid invoices first; anything left over stays as credit on the account.
+// { amount, discount?, method?, date?, note?, saleId? }  Without saleId it is applied to
+// the oldest unpaid invoices first; anything left over stays as credit on the account.
+// A discount reduces the balance of one named invoice and is recorded with the payment.
 export async function recordPayment(req, res, next) {
   const session = await mongoose.startSession()
   try {
@@ -52,6 +60,10 @@ export async function recordPayment(req, res, next) {
     const amount = round2(Number(req.body.amount))
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({ ok: false, message: 'Enter an amount greater than zero' })
+    }
+    const discount = round2(Number(req.body.discount || 0))
+    if (!Number.isFinite(discount) || discount < 0) {
+      return res.status(400).json({ ok: false, message: 'Enter a discount of zero or more' })
     }
     const method = req.body.method || 'cash'
     if (!PAYMENT_METHODS.includes(method)) {
@@ -68,6 +80,12 @@ export async function recordPayment(req, res, next) {
     if (saleId && !mongoose.isValidObjectId(saleId)) {
       return res.status(400).json({ ok: false, message: 'Invalid invoice' })
     }
+    if (discount > 0 && !saleId) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Choose the invoice this discount applies to',
+      })
+    }
 
     let created = null
     await session.withTransaction(async () => {
@@ -82,6 +100,11 @@ export async function recordPayment(req, res, next) {
         const out = outstandingOf(sale)
         if (amount > out + 0.001) {
           throw new PayError(`That is more than the ${sale.invoiceNumber} balance of ${out}`)
+        }
+        if (discount > 0 && round2(amount + discount) > out + 0.001) {
+          throw new PayError(
+            `Payment plus discount is more than the ${sale.invoiceNumber} balance of ${out}`
+          )
         }
         allocations = [{ sale: sale._id, amount }]
       } else {
@@ -105,6 +128,8 @@ export async function recordPayment(req, res, next) {
             reference: `PMT-${1000 + counter.seq}`,
             customer: customer._id,
             amount,
+            discount,
+            discountSale: discount > 0 ? saleId : null,
             method,
             date,
             note: String(req.body.note ?? '').slice(0, 500),
@@ -116,7 +141,9 @@ export async function recordPayment(req, res, next) {
         ],
         { session }
       )
-      for (const a of allocations) await recomputeSale(a.sale, session)
+      const touched = new Set(allocations.map((a) => String(a.sale)))
+      if (discount > 0 && saleId) touched.add(String(saleId))
+      for (const id of touched) await recomputeSale(id, session)
     })
 
     res.status(201).json({ ok: true, payment: created })
@@ -145,6 +172,7 @@ export async function voidPayment(req, res, next) {
       payment.voidReason = String(req.body.reason ?? '').slice(0, 300)
       await payment.save({ session })
       for (const a of payment.allocations) await recomputeSale(a.sale, session)
+      if (payment.discountSale) await recomputeSale(payment.discountSale, session)
     })
     res.json({ ok: true })
   } catch (err) {

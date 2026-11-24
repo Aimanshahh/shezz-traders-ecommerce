@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Box, Stack, TextField, Button, Typography, Alert } from '@mui/material'
 import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined'
 import VideocamOffOutlinedIcon from '@mui/icons-material/VideocamOffOutlined'
-import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner'
+import QrCodeScannerOutlinedIcon from '@mui/icons-material/QrCodeScanner'
 import FlashOnOutlinedIcon from '@mui/icons-material/FlashOnOutlined'
 import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined'
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
@@ -211,7 +211,7 @@ export default function IMEIScanner({
           color="info"
           onClick={submitTyped}
           disabled={busy || !value.trim()}
-          startIcon={<QrCodeScannerIcon />}
+          startIcon={<QrCodeScannerOutlinedIcon />}
           sx={{ borderRadius: 999, fontWeight: 700, px: 2.5, whiteSpace: 'nowrap' }}
         >
           {buttonLabel}

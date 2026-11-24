@@ -7,11 +7,11 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
+import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHoriz'
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined'
-import ReceiptIcon from '@mui/icons-material/Receipt'
-import DevicesIcon from '@mui/icons-material/Devices'
-import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
+import ReceiptOutlinedIcon from '@mui/icons-material/Receipt'
+import DevicesOutlinedIcon from '@mui/icons-material/Devices'
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWallet'
 import AdminLayout from './AdminLayout.jsx'
 import DeviceStatusChip from '../admin/DeviceStatusChip.jsx'
 import { money, fmtDate, labelOf, PAYMENT_METHODS, WARRANTY_LABELS } from '../../components/admin/format.js'
@@ -22,9 +22,9 @@ const th = { fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', text
 const td = { fontSize: '0.84rem', py: 1.5, px: 2, borderTop: '1px solid', borderColor: 'divider', verticalAlign: 'top' }
 
 const PAY_STYLE = {
-  paid: { label: 'Paid', bg: 'rgba(16,185,129,0.12)', color: '#0F8A5F' },
-  partial: { label: 'Partial', bg: 'rgba(245,158,11,0.14)', color: '#B45309' },
-  unpaid: { label: 'Unpaid', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
+  paid: { label: 'Paid', bg: 'rgba(4,120,87,0.12)', color: '#047857' },
+  partial: { label: 'Partial', bg: 'rgba(180,83,9,0.14)', color: '#B45309' },
+  unpaid: { label: 'Unpaid', bg: 'rgba(185,28,28,0.1)', color: '#B91C1C' },
 }
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -47,7 +47,7 @@ function Stat({ label, value, tone, icon, highlight }) {
           </Typography>
           {icon && <Box sx={{ color: highlight ? 'error.main' : 'text.disabled', display: 'flex' }}>{icon}</Box>}
         </Stack>
-        <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.8rem', lineHeight: 1, color: tone || 'text.primary' }}>
+        <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: '1.8rem', lineHeight: 1, color: tone || 'text.primary' }}>
           {value}
         </Typography>
       </CardContent>
@@ -71,7 +71,7 @@ export default function AdminCustomerDetail() {
   const [ratesError, setRatesError] = useState('')
 
   const [payOpen, setPayOpen] = useState(false)
-  const [pay, setPay] = useState({ amount: '', method: 'cash', date: today(), note: '', saleId: '' })
+  const [pay, setPay] = useState({ amount: '', discount: '', method: 'cash', date: today(), note: '', saleId: '' })
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState('')
 
@@ -105,7 +105,7 @@ export default function AdminCustomerDetail() {
 
   const openPay = (saleId = '') => {
     const sale = openSales.find((s) => s._id === saleId)
-    setPay({ amount: sale ? String(sale.balance) : '', method: 'cash', date: today(), note: '', saleId })
+    setPay({ amount: sale ? String(sale.balance) : '', discount: '', method: 'cash', date: today(), note: '', saleId })
     setPayError('')
     setPayOpen(true)
   }
@@ -116,6 +116,7 @@ export default function AdminCustomerDetail() {
     try {
       await recordPayment(id, {
         amount: Number(pay.amount),
+        discount: Number(pay.discount) || 0,
         method: pay.method,
         date: pay.date || undefined,
         note: pay.note,
@@ -183,8 +184,15 @@ export default function AdminCustomerDetail() {
     }
   }
 
-  const balanceTone = st.balance > 0 ? '#C81E1E' : st.balance < 0 ? '#0F8A5F' : undefined
+  const balanceTone = st.balance > 0 ? '#B91C1C' : st.balance < 0 ? '#047857' : undefined
   const balanceText = st.balance < 0 ? `${money(-st.balance)} credit` : money(st.balance)
+
+  // Payment dialog maths: a discount only ever applies to one named invoice.
+  const paySale = openSales.find((s) => s._id === pay.saleId)
+  const payAmount = Number(pay.amount) || 0
+  const payDiscount = Number(pay.discount) || 0
+  const payOver = paySale ? payAmount + payDiscount > Number(paySale.balance) + 0.001 : false
+  const payRemaining = paySale ? Math.max(0, Number(paySale.balance) - payAmount - payDiscount) : null
 
   return (
     <AdminLayout title="Customer">
@@ -211,7 +219,7 @@ export default function AdminCustomerDetail() {
                       {c.name.charAt(0).toUpperCase()}
                     </Avatar>
                     <Box>
-                      <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.2rem' }, lineHeight: 1, color: 'text.primary' }}>
+                      <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: { xs: '1.8rem', md: '2.2rem' }, lineHeight: 1, color: 'text.primary' }}>
                         {c.name}
                       </Typography>
                       <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary', mt: 0.5, fontWeight: 500 }}>
@@ -237,7 +245,7 @@ export default function AdminCustomerDetail() {
                     <Button component={RouterLink} to={`/admin/customers/${id}/statement`} variant="outlined" color="info" startIcon={<ReceiptLongOutlinedIcon />} sx={{ borderRadius: 1.5, fontWeight: 600, px: 2.5 }}>
                       Statement
                     </Button>
-                    <Button component={RouterLink} to={`/admin/handover?from=${id}`} variant="outlined" color="info" startIcon={<SwapHorizIcon />} sx={{ borderRadius: 1.5, fontWeight: 600, px: 2.5 }}>
+                    <Button component={RouterLink} to={`/admin/handover?from=${id}`} variant="outlined" color="info" startIcon={<SwapHorizOutlinedIcon />} sx={{ borderRadius: 1.5, fontWeight: 600, px: 2.5 }}>
                       Handover
                     </Button>
                   </Stack>
@@ -247,15 +255,15 @@ export default function AdminCustomerDetail() {
 
             {/* STATS GRID */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2 }}>
-              <Stat label="Invoices" value={st.purchases || 0} icon={<ReceiptIcon />} />
-              <Stat label="Devices bought" value={st.devices || 0} icon={<DevicesIcon />} />
-              <Stat label="Billed" value={money(st.spent)} icon={<AccountBalanceWalletIcon />} />
-              <Stat label="Paid" value={money(st.paid)} tone="#0F8A5F" icon={<PaymentsOutlinedIcon />} />
+              <Stat label="Invoices" value={st.purchases || 0} icon={<ReceiptOutlinedIcon />} />
+              <Stat label="Devices bought" value={st.devices || 0} icon={<DevicesOutlinedIcon />} />
+              <Stat label="Billed" value={money(st.spent)} icon={<AccountBalanceWalletOutlinedIcon />} />
+              <Stat label="Paid" value={money(st.paid)} tone="#047857" icon={<PaymentsOutlinedIcon />} />
               <Stat 
                 label={st.balance < 0 ? 'Credit' : 'Balance due'} 
                 value={balanceText} 
                 tone={balanceTone} 
-                icon={<AccountBalanceWalletIcon />} 
+                icon={<AccountBalanceWalletOutlinedIcon />} 
                 highlight={st.balance > 0} 
               />
             </Box>
@@ -267,14 +275,14 @@ export default function AdminCustomerDetail() {
                 <Stack spacing={1}>
                   {data.receivedFrom.map((g) => (
                     <Typography key={`in-${g.customer._id}`} sx={{ fontSize: '0.88rem', color: 'text.secondary' }}>
-                      Received <b style={{ color: '#111' }}>{g.count}</b> device{g.count === 1 ? '' : 's'} from{' '}
+                      Received <b style={{ color: '#0F172A' }}>{g.count}</b> device{g.count === 1 ? '' : 's'} from{' '}
                       <Box component={RouterLink} to={`/admin/customers/${g.customer._id}`} sx={{ color: 'info.main', fontWeight: 600, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>{g.customer.name}</Box>{' '}
                       <Box component="span" sx={{ color: 'text.disabled' }}>· last {fmtDate(g.lastDate)}</Box>
                     </Typography>
                   ))}
                   {data.passedOn.map((g) => (
                     <Typography key={`out-${g.customer._id}`} sx={{ fontSize: '0.88rem', color: 'text.secondary' }}>
-                      Passed <b style={{ color: '#111' }}>{g.count}</b> device{g.count === 1 ? '' : 's'} on to{' '}
+                      Passed <b style={{ color: '#0F172A' }}>{g.count}</b> device{g.count === 1 ? '' : 's'} on to{' '}
                       <Box component={RouterLink} to={`/admin/customers/${g.customer._id}`} sx={{ color: 'info.main', fontWeight: 600, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>{g.customer.name}</Box>{' '}
                       <Box component="span" sx={{ color: 'text.disabled' }}>· last {fmtDate(g.lastDate)}</Box>
                     </Typography>
@@ -306,8 +314,8 @@ export default function AdminCustomerDetail() {
               <Box sx={{ overflowX: 'auto' }}>
                 {tab === 0 && (
                   data.sales.length === 0 ? <Empty text="No invoices yet." /> : (
-                    <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
-                      <thead><tr>{['Invoice', 'Date', 'Devices', 'Total', 'Paid', 'Balance', 'Status', ''].map((h) => <Box key={h || 'x'} component="th" sx={th}>{h}</Box>)}</tr></thead>
+                    <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+                      <thead><tr>{['Invoice', 'Date', 'Devices', 'Total', 'Paid', 'Discount', 'Balance', 'Status', ''].map((h) => <Box key={h || 'x'} component="th" sx={th}>{h}</Box>)}</tr></thead>
                       <tbody>
                         {data.sales.map((s) => {
                           const ps = PAY_STYLE[s.paymentStatus] || PAY_STYLE.paid
@@ -320,7 +328,8 @@ export default function AdminCustomerDetail() {
                               <Box component="td" sx={td}>{s.itemCount}</Box>
                               <Box component="td" sx={{ ...td, fontWeight: 600 }}>{money(s.total)}</Box>
                               <Box component="td" sx={td}>{money(s.paid)}</Box>
-                              <Box component="td" sx={{ ...td, fontWeight: 700, color: s.balance > 0 ? '#C81E1E' : 'text.primary' }}>{money(s.balance)}</Box>
+                              <Box component="td" sx={{ ...td, color: s.discountLater > 0 ? 'success.main' : 'text.secondary' }}>{s.discountLater > 0 ? money(s.discountLater) : '—'}</Box>
+                              <Box component="td" sx={{ ...td, fontWeight: 700, color: s.balance > 0 ? '#B91C1C' : 'text.primary' }}>{money(s.balance)}</Box>
                               <Box component="td" sx={td}><Chip label={ps.label} size="small" sx={{ bgcolor: ps.bg, color: ps.color, fontWeight: 700, fontSize: '0.68rem', height: 22, borderRadius: 999 }} /></Box>
                               <Box component="td" sx={td}>
                                 {s.balance > 0 && <Button size="small" variant="outlined" onClick={() => openPay(s._id)} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, py: 0.5 }}>Pay</Button>}
@@ -336,13 +345,14 @@ export default function AdminCustomerDetail() {
                 {tab === 1 && (
                   data.payments.length === 0 ? <Empty text="No separate payments recorded. Money paid at the time of sale is shown on the invoices." /> : (
                     <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
-                      <thead><tr>{['Ref', 'Date', 'Amount', 'Method', 'Applied to', 'Received by', ''].map((h) => <Box key={h || 'x'} component="th" sx={th}>{h}</Box>)}</tr></thead>
+                      <thead><tr>{['Ref', 'Date', 'Amount', 'Discount', 'Method', 'Applied to', 'Received by', ''].map((h) => <Box key={h || 'x'} component="th" sx={th}>{h}</Box>)}</tr></thead>
                       <tbody>
                         {data.payments.map((p) => (
                           <tr key={p._id} style={p.voided ? { opacity: 0.55 } : undefined}>
                             <Box component="td" sx={{ ...td, fontFamily: 'monospace', fontWeight: 700, textDecoration: p.voided ? 'line-through' : 'none' }}>{p.reference}</Box>
                             <Box component="td" sx={td}>{fmtDate(p.date)}</Box>
                             <Box component="td" sx={{ ...td, fontWeight: 700 }}>{money(p.amount)}</Box>
+                            <Box component="td" sx={{ ...td, color: p.discount > 0 ? 'success.main' : 'text.secondary' }}>{p.discount > 0 ? money(p.discount) : '—'}</Box>
                             <Box component="td" sx={td}>{labelOf(PAYMENT_METHODS, p.method)}</Box>
                             <Box component="td" sx={td}>
                               {p.voided ? <i>Voided{p.voidReason ? ` · ${p.voidReason}` : ''}</i> : (p.appliedTo?.join(', ') || 'On account')}
@@ -433,19 +443,44 @@ export default function AdminCustomerDetail() {
       </Dialog>
 
       {/* PAYMENT DIALOG */}
-      <Dialog open={payOpen} onClose={() => !paying && setPayOpen(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 2 } }}>
+      <Dialog open={payOpen} onClose={() => !paying && setPayOpen(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 2 } }}>
         <DialogTitle sx={{ fontWeight: 800 }}>Record payment</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2.5} sx={{ pt: 1 }}>
             {payError && <Alert severity="error">{payError}</Alert>}
-            <TextField label="Amount (Rs.)" type="number" size="small" autoFocus value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} helperText={st.balance > 0 ? `Total balance due: ${money(st.balance)}` : undefined} />
+            <TextField label="Amount received (Rs.)" type="number" size="small" autoFocus value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} helperText={st.balance > 0 ? `Total balance due: ${money(st.balance)}` : undefined} error={payOver} />
             <TextField select label="Apply to" size="small" value={pay.saleId} onChange={(e) => {
               const sale = openSales.find((s) => s._id === e.target.value)
-              setPay({ ...pay, saleId: e.target.value, amount: sale && !pay.amount ? String(sale.balance) : pay.amount })
+              setPay({ ...pay, saleId: e.target.value, discount: e.target.value ? pay.discount : '', amount: sale && !pay.amount ? String(sale.balance) : pay.amount })
             }}>
               <MenuItem value="">Oldest unpaid invoices first</MenuItem>
               {openSales.map((s) => <MenuItem key={s._id} value={s._id}>{s.invoiceNumber} · due {money(s.balance)}</MenuItem>)}
             </TextField>
+            <TextField
+              label="Discount (Rs.)"
+              type="number"
+              size="small"
+              value={pay.discount}
+              onChange={(e) => setPay({ ...pay, discount: e.target.value })}
+              disabled={!pay.saleId}
+              error={payDiscount < 0 || payOver}
+              helperText={pay.saleId
+                ? 'Optional write-off on this invoice, recorded with the payment.'
+                : 'Choose a single invoice to give a discount.'}
+            />
+            {paySale && (
+              <Box sx={{ p: 2, borderRadius: 1.5, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>
+                <Stack spacing={0.75}>
+                  <SummaryRow label={`${paySale.invoiceNumber} balance`} value={money(paySale.balance)} />
+                  <SummaryRow label="Discount" value={`− ${money(payDiscount)}`} tone={payDiscount > 0 ? 'success.main' : 'text.secondary'} />
+                  <SummaryRow label="Receiving now" value={money(payAmount)} />
+                  <Box sx={{ borderTop: '1px dashed', borderColor: 'divider', pt: 0.75 }}>
+                    <SummaryRow label="Balance after this entry" value={money(payRemaining)} strong tone={payOver ? 'error.main' : 'text.primary'} />
+                  </Box>
+                </Stack>
+                {payOver && <Alert severity="error" sx={{ mt: 1.5, py: 0.25 }}>Receipt plus discount is more than this invoice's balance.</Alert>}
+              </Box>
+            )}
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
               <TextField select label="Method" size="small" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>
                 {PAYMENT_METHODS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
@@ -457,7 +492,7 @@ export default function AdminCustomerDetail() {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setPayOpen(false)} disabled={paying} sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600 }}>Cancel</Button>
-          <Button onClick={submitPay} disabled={paying || !(Number(pay.amount) > 0)} variant="contained" color="info" sx={{ borderRadius: 1.5, fontWeight: 700, px: 3 }}>
+          <Button onClick={submitPay} disabled={paying || !(payAmount > 0) || payDiscount < 0 || payOver} variant="contained" color="info" sx={{ borderRadius: 1.5, fontWeight: 700, px: 3 }}>
             {paying ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save payment'}
           </Button>
         </DialogActions>
@@ -487,4 +522,13 @@ export default function AdminCustomerDetail() {
 
 function Empty({ text }) {
   return <Typography sx={{ textAlign: 'center', color: 'text.secondary', fontSize: '0.9rem', py: 8, px: 3, fontWeight: 500 }}>{text}</Typography>
+}
+
+function SummaryRow({ label, value, tone, strong }) {
+  return (
+    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+      <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{label}</Typography>
+      <Typography sx={{ fontSize: strong ? '0.95rem' : '0.85rem', fontWeight: strong ? 800 : 600, color: tone || 'text.primary' }}>{value}</Typography>
+    </Stack>
+  )
 }

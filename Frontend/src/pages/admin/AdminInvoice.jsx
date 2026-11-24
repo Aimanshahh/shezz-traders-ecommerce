@@ -89,7 +89,7 @@ const PRINT_CSS = `
 }
 `
 
-const BRAND = '#087F86'
+const BRAND = '#0F766E'
 const INK = '#17333A'
 const MUTED = '#526B70'
 const LINE = '#D9E4E5'
@@ -156,10 +156,11 @@ export default function AdminInvoice() {
   const returned = Number(sale?.returnedAmount || 0)
   const received = Number(sale?.amountPaid || 0) + Number(sale?.paidLater || 0)
   const refunded = Number(sale?.refundedAmount || 0)
+  const discountedLater = Number(sale?.discountLater || 0)
   const netPaid = Math.max(0, received - refunded)
   const netTotal = Math.max(0, Number(sale?.total || 0) - returned)
-  const balanceDue = Math.max(0, netTotal - netPaid)
-  const accountCredit = Math.max(0, netPaid - netTotal)
+  const balanceDue = Math.max(0, netTotal - netPaid - discountedLater)
+  const accountCredit = Math.max(0, netPaid + discountedLater - netTotal)
   const status = balanceDue <= 0
     ? { label: 'PAID', bg: '#E3F6EC', color: '#0F7A4D' }
     : received > 0
@@ -281,7 +282,7 @@ export default function AdminInvoice() {
           <Button onClick={() => window.print()} disabled={!sale} startIcon={<PrintOutlinedIcon />} variant="contained" sx={{ bgcolor: '#073B43', borderRadius: 1, textTransform: 'none', '&:hover': { bgcolor: '#0A5059' } }}>
             Print
           </Button>
-          <Button onClick={handleSavePdf} disabled={!sale} startIcon={<PictureAsPdfOutlinedIcon />} variant="outlined" sx={{ borderColor: '#087F86', color: '#087F86', borderRadius: 1, textTransform: 'none', whiteSpace: 'nowrap' }}>
+          <Button onClick={handleSavePdf} disabled={!sale} startIcon={<PictureAsPdfOutlinedIcon />} variant="outlined" sx={{ borderColor: '#0F766E', color: '#0F766E', borderRadius: 1, textTransform: 'none', whiteSpace: 'nowrap' }}>
             Save as PDF
           </Button>
         </Stack>
@@ -323,7 +324,7 @@ export default function AdminInvoice() {
       )}
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress size={40} sx={{ color: '#087F86' }} /></Box>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress size={40} sx={{ color: '#0F766E' }} /></Box>
       ) : error ? (
         <Alert severity="error" sx={{ maxWidth: 850, mx: 'auto', borderRadius: 1, fontWeight: 600 }}>{error}</Alert>
       ) : sale && (
@@ -533,6 +534,7 @@ export default function AdminInvoice() {
                 <Box sx={{ mt: 1 }}>
                   {sale.amountPaid > 0 && <TotalRow label={balanceDue > 0 ? 'Received' : 'Paid at sale'} value={money(sale.amountPaid)} />}
                   {sale.paidLater > 0 && <TotalRow label="Paid later" value={money(sale.paidLater)} />}
+                  {discountedLater > 0 && <TotalRow label="Discount given" value={`-${money(discountedLater)}`} />}
                   {refunded > 0 && <TotalRow label="Refunded" value={`-${money(refunded)}`} />}
                   {accountCredit > 0 && <TotalRow label="Customer credit" value={money(accountCredit)} strong />}
                 </Box>

@@ -20,7 +20,7 @@ const INPUT_SX = {
   '& .MuiOutlinedInput-root': {
     '& fieldset': { borderColor: BORDER },
     '&:hover fieldset': { borderColor: '#94A3B8' },
-    '&.Mui-focused fieldset': { borderColor: '#0ea5e9' },
+    '&.Mui-focused fieldset': { borderColor: 'info.main' },
   },
 }
 
@@ -236,13 +236,13 @@ export default function AdminSaleReview() {
                         Submitted {fmtDate(sale.submittedAt)} by {sale.salespersonName || 'salesperson'}
                       </Typography>
                     </Box>
-                    <Chip label="Pending review" sx={{ bgcolor: 'rgba(245,158,11,0.14)', color: '#B45309', fontWeight: 700, borderRadius: 999 }} />
+                    <Chip label="Pending review" sx={{ bgcolor: 'rgba(180,83,9,0.14)', color: '#B45309', fontWeight: 700, borderRadius: 999 }} />
                   </Stack>
 
                   <Divider sx={{ my: 2 }} />
 
                   <Stack direction="row" spacing={2} alignItems="center">
-                    <Box sx={{ width: 40, height: 40, borderRadius: '50%', bgcolor: 'rgba(14,165,233,0.1)', color: 'info.main', display: 'grid', placeItems: 'center' }}>
+                    <Box sx={{ width: 40, height: 40, borderRadius: '50%', bgcolor: 'rgba(15,118,110,0.1)', color: 'info.main', display: 'grid', placeItems: 'center' }}>
                       <PersonOutlinedIcon />
                     </Box>
                     <Box>
@@ -445,7 +445,7 @@ export default function AdminSaleReview() {
                   </Stack>
                   <Stack direction="row" justifyContent="space-between">
                     <Typography sx={{ fontSize: '1rem', fontWeight: 800 }}>Invoice total</Typography>
-                    <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontSize: '1.4rem', fontWeight: 800 }}>{money(total)}</Typography>
+                    <Typography sx={{ fontFamily: 'inherit', fontSize: '1.4rem', fontWeight: 800 }}>{money(total)}</Typography>
                   </Stack>
                   
                   {payMode !== 'full' && (

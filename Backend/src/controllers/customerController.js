@@ -16,7 +16,7 @@ import { buildEntries, applyRange, outstandingOf } from '../utils/Ledger.js'
 const round2 = (n) => Math.round(n * 100) / 100
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-const emptyStats = { purchases: 0, devices: 0, spent: 0, paid: 0, balance: 0, lastPurchase: null }
+const emptyStats = { purchases: 0, devices: 0, spent: 0, paid: 0, discounts: 0, balance: 0, lastPurchase: null }
 
 // Map(customerId -> { purchases, devices, spent, paid, balance, lastPurchase })
 async function statsFor(customerIds) {
@@ -40,19 +40,28 @@ async function statsFor(customerIds) {
     ]),
     Payment.aggregate([
       { $match: { customer: { $in: customerIds }, voided: false } },
-      { $group: { _id: '$customer', paid: { $sum: '$amount' } } },
+      {
+        $group: {
+          _id: '$customer',
+          paid: { $sum: '$amount' },
+          discounts: { $sum: { $ifNull: ['$discount', 0] } },
+        },
+      },
     ]),
   ])
-  const payOf = new Map(payRows.map((r) => [String(r._id), r.paid]))
+  const payOf = new Map(payRows.map((r) => [String(r._id), r]))
   saleRows.forEach((r) => {
+    const pay = payOf.get(String(r._id)) || { paid: 0, discounts: 0 }
     const spent = round2(r.spent - r.returned)
-    const paid = round2(r.paidAtSale + (payOf.get(String(r._id)) || 0) - r.refunded)
+    const paid = round2(r.paidAtSale + pay.paid - r.refunded)
+    const discounts = round2(pay.discounts)
     map.set(String(r._id), {
       purchases: r.purchases,
       devices: r.devices,
       spent,
       paid,
-      balance: round2(spent - paid),
+      discounts,
+      balance: round2(spent - paid - discounts),
       lastPurchase: r.lastPurchase,
     })
   })
@@ -60,7 +69,12 @@ async function statsFor(customerIds) {
   payRows.forEach((r) => {
     const k = String(r._id)
     if (!map.has(k)) {
-      map.set(k, { ...emptyStats, paid: round2(r.paid), balance: round2(-r.paid) })
+      map.set(k, {
+        ...emptyStats,
+        paid: round2(r.paid),
+        discounts: round2(r.discounts),
+        balance: round2(-r.paid),
+      })
     }
   })
   return map

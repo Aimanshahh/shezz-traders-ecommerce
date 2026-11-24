@@ -254,9 +254,9 @@ export default function AdminProductForm() {
         <Box sx={{ mb: 3 }}>
           <Typography
             sx={{
-              fontFamily: '"Barlow Condensed", sans-serif',
+              fontFamily: 'inherit',
               fontWeight: 800,
-              fontSize: { xs: '1.5rem', md: '1.85rem' },
+              fontSize: { xs: '1.3rem', md: '1.5rem' },
               lineHeight: 1.1,
               letterSpacing: '-0.01em',
               color: 'text.primary',

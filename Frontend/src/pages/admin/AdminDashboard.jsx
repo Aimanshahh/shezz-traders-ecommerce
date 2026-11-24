@@ -13,15 +13,15 @@ import SpeedOutlinedIcon from '@mui/icons-material/SpeedOutlined'
 import AdminLayout from './AdminLayout.jsx'
 import { isAdminLoggedIn, getAdminUser } from '../../lib/adminAuth.js'
 import { getAdminOverview, getDashboardStats } from '../../services/api.js'
-import { BRAND } from '../../theme/theme.js'
+import { ADMIN } from '../../theme/adminTheme.js'
 
 const STATUS_COLORS = {
-  Pending: { bg: 'rgba(251,55,8,0.1)', color: BRAND.orange },
-  'Awaiting Payment': { bg: 'rgba(255,193,7,0.15)', color: '#B45309' },
-  Confirmed: { bg: 'rgba(0,131,143,0.1)', color: BRAND.tealDark },
-  Shipped: { bg: 'rgba(0,184,212,0.15)', color: BRAND.tealDark },
-  Delivered: { bg: 'rgba(16,185,129,0.12)', color: '#0F8A5F' },
-  Cancelled: { bg: 'rgba(227,30,36,0.1)', color: BRAND.red },
+  Pending: { bg: ADMIN.warningSoft, color: ADMIN.warning },
+  'Awaiting Payment': { bg: ADMIN.warningSoft, color: ADMIN.warning },
+  Confirmed: { bg: ADMIN.infoSoft, color: ADMIN.info },
+  Shipped: { bg: ADMIN.infoSoft, color: ADMIN.info },
+  Delivered: { bg: ADMIN.successSoft, color: ADMIN.success },
+  Cancelled: { bg: ADMIN.dangerSoft, color: ADMIN.danger },
 }
 
 export default function AdminDashboard() {
@@ -80,7 +80,7 @@ export default function AdminDashboard() {
       hint:
         stats.revenue === 0 ? 'No sales yet' : 'Excludes cancelled orders',
       icon: TrendingUpIcon,
-      color: BRAND.teal,
+      color: ADMIN.accent,
     },
     {
       label: 'Total orders',
@@ -92,7 +92,7 @@ export default function AdminDashboard() {
           ? '1 order placed'
           : `${stats.orderCount} orders placed`,
       icon: ReceiptLongOutlinedIcon,
-      color: BRAND.tealDark,
+      color: ADMIN.accent,
     },
     {
       label: 'Products',
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
           ? 'Add your first product'
           : `${stats.productCount} in catalog`,
       icon: Inventory2OutlinedIcon,
-      color: BRAND.orange,
+      color: ADMIN.accent,
     },
     {
       label: 'Recent activity',
@@ -115,35 +115,35 @@ export default function AdminDashboard() {
           ? 'Latest orders below'
           : 'Waiting for first order',
       icon: CategoryOutlinedIcon,
-      color: BRAND.red,
+      color: ADMIN.accent,
     },
     {
       label: 'CRM devices',
       value: deviceCount.toLocaleString(),
       hint: 'Tracked by IMEI',
       icon: Inventory2OutlinedIcon,
-      color: '#2563EB',
+      color: ADMIN.accent,
     },
     {
       label: 'Open return cases',
       value: String(overview?.openCaseCount || 0),
       hint: 'Awaiting a decision',
       icon: ReceiptLongOutlinedIcon,
-      color: '#B45309',
+      color: ADMIN.warning,
     },
     {
       label: 'Warranties ending soon',
       value: String(overview?.expiringWarrantyCount || 0),
       hint: 'Within 30 days',
       icon: CategoryOutlinedIcon,
-      color: '#0F766E',
+      color: ADMIN.accent,
     },
     {
       label: 'Low-stock products',
       value: String(overview?.lowStockCount || 0),
       hint: 'Five or fewer in storefront stock',
       icon: Inventory2OutlinedIcon,
-      color: BRAND.orange,
+      color: ADMIN.warning,
     },
   ]
 
@@ -154,18 +154,17 @@ export default function AdminDashboard() {
         <Box sx={{ mb: { xs: 3, md: 4 } }}>
           <Typography
             sx={{
-              fontFamily: '"Barlow Condensed", sans-serif',
-              fontWeight: 800,
-              fontSize: { xs: '1.75rem', md: '2.1rem' },
-              lineHeight: 1.1,
-              letterSpacing: '-0.01em',
+              fontWeight: 700,
+              fontSize: { xs: '1.3rem', md: '1.5rem' },
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
               color: 'text.primary',
-              mb: 0.75,
+              mb: 0.5,
             }}
           >
-            Welcome back, {admin?.name || 'Admin'}.
+            Welcome back, {admin?.name || 'Admin'}
           </Typography>
-          <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>
+          <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
             Here's what's happening with your store today.
           </Typography>
         </Box>
@@ -229,7 +228,7 @@ export default function AdminDashboard() {
 
                   <Typography
                     sx={{
-                      fontFamily: '"Barlow Condensed", sans-serif',
+                      fontFamily: 'inherit',
                       fontWeight: 800,
                       fontSize: { xs: '1.6rem', md: '1.8rem' },
                       lineHeight: 1,
@@ -270,7 +269,7 @@ export default function AdminDashboard() {
                 <Typography sx={{ fontWeight: 800, fontSize: '1rem' }}>Recent order mix</Typography>
                 <Typography sx={{ color: 'text.secondary', fontSize: '0.76rem', mt: 0.3 }}>Latest five orders by status</Typography>
               </Box>
-              <ReceiptLongOutlinedIcon sx={{ color: BRAND.orange, fontSize: 21 }} />
+              <ReceiptLongOutlinedIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
             </Stack>
             <OrderMix orders={stats.recentOrders} />
           </Box>
@@ -323,7 +322,7 @@ export default function AdminDashboard() {
                 <Box>
                   <Typography
                     sx={{
-                      fontFamily: '"Barlow Condensed", sans-serif',
+                      fontFamily: 'inherit',
                       fontWeight: 700,
                       fontSize: '1.2rem',
                       lineHeight: 1.2,
@@ -353,7 +352,7 @@ export default function AdminDashboard() {
                     fontWeight: 600,
                     fontSize: '0.78rem',
                     color: 'info.main',
-                    '&:hover': { bgcolor: 'rgba(0,131,143,0.06)' },
+                    '&:hover': { bgcolor: 'rgba(15,118,110,0.06)' },
                   }}
                 >
                   View all
@@ -393,7 +392,7 @@ export default function AdminDashboard() {
             >
               <Typography
                 sx={{
-                  fontFamily: '"Barlow Condensed", sans-serif',
+                  fontFamily: 'inherit',
                   fontWeight: 700,
                   fontSize: '1.1rem',
                   color: 'text.primary',
@@ -429,11 +428,11 @@ export default function AdminDashboard() {
 }
 
 const INVENTORY_STATUS = [
-  { key: 'available', label: 'Available', color: '#0F8A5F' },
-  { key: 'sold', label: 'Sold', color: '#087F86' },
-  { key: 'returned', label: 'Returned', color: '#C2410C' },
-  { key: 'faulty', label: 'Faulty', color: '#C81E1E' },
-  { key: 'lost', label: 'Lost', color: '#64748B' },
+  { key: 'available', label: 'Available', color: ADMIN.success },
+  { key: 'sold', label: 'Sold', color: ADMIN.accent },
+  { key: 'returned', label: 'Returned', color: ADMIN.warning },
+  { key: 'faulty', label: 'Faulty', color: ADMIN.danger },
+  { key: 'lost', label: 'Lost', color: ADMIN.muted },
 ]
 
 function InventoryBars({ counts }) {
@@ -447,7 +446,7 @@ function InventoryBars({ counts }) {
         <Typography sx={{ fontSize: '0.78rem', fontWeight: 600 }}>{item.label}</Typography>
         <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary' }}>{value} · {percent}%</Typography>
       </Stack>
-      <Box sx={{ height: 7, bgcolor: '#EDF2F2', borderRadius: 999, overflow: 'hidden' }}><Box sx={{ width: `${percent}%`, height: '100%', bgcolor: item.color, borderRadius: 999, transition: 'width 0.4s ease' }} /></Box>
+      <Box sx={{ height: 7, bgcolor: '#EEF2F6', borderRadius: 999, overflow: 'hidden' }}><Box sx={{ width: `${percent}%`, height: '100%', bgcolor: item.color, borderRadius: 999, transition: 'width 0.4s ease' }} /></Box>
     </Box>
   })}</Stack>
 }
@@ -456,7 +455,7 @@ function OrderMix({ orders }) {
   if (!orders.length) return <Typography sx={{ color: 'text.secondary', fontSize: '0.82rem', py: 2 }}>No recent orders yet.</Typography>
   const counts = orders.reduce((map, order) => ({ ...map, [order.status]: (map[order.status] || 0) + 1 }), {})
   return <Stack spacing={1.35}>{Object.entries(counts).map(([status, count]) => {
-    const tone = STATUS_COLORS[status] || { bg: '#EDF2F2', color: '#526B70' }
+    const tone = STATUS_COLORS[status] || { bg: '#EEF2F6', color: '#526B70' }
     return <Stack key={status} direction="row" alignItems="center" spacing={1.25}>
       <Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: tone.color, flexShrink: 0 }} />
       <Typography sx={{ fontSize: '0.78rem', flex: 1 }}>{status}</Typography>
@@ -556,7 +555,7 @@ function OrderRow({ order, last }) {
 
       <Typography
         sx={{
-          fontFamily: '"Barlow Condensed", sans-serif',
+          fontFamily: 'inherit',
           fontWeight: 700,
           fontSize: '0.95rem',
           color: 'text.primary',
@@ -590,7 +589,7 @@ function EmptyState({ icon, title, desc }) {
           width: 72,
           height: 72,
           borderRadius: '50%',
-          bgcolor: 'rgba(0,131,143,0.08)',
+          bgcolor: 'rgba(15,118,110,0.08)',
           color: 'info.main',
           display: 'flex',
           alignItems: 'center',
@@ -602,7 +601,7 @@ function EmptyState({ icon, title, desc }) {
       </Box>
       <Typography
         sx={{
-          fontFamily: '"Barlow Condensed", sans-serif',
+          fontFamily: 'inherit',
           fontWeight: 700,
           fontSize: '1.15rem',
           color: 'text.primary',
@@ -645,7 +644,7 @@ function QuickAction({ icon, label, to }) {
         transition: 'all 0.18s ease',
         '&:hover': {
           borderColor: 'info.main',
-          bgcolor: 'rgba(0,131,143,0.04)',
+          bgcolor: 'rgba(15,118,110,0.04)',
           '& .qa-icon': { bgcolor: 'info.main', color: '#fff' },
         },
       }}
@@ -656,7 +655,7 @@ function QuickAction({ icon, label, to }) {
           width: 34,
           height: 34,
           borderRadius: 1,
-          bgcolor: 'rgba(0,131,143,0.1)',
+          bgcolor: 'rgba(15,118,110,0.1)',
           color: 'info.main',
           display: 'flex',
           alignItems: 'center',

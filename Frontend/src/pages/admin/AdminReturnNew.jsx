@@ -67,7 +67,7 @@ export default function AdminReturnNew({ shell = ADMIN_SHELL }) {
     <Layout title="Open return case">
       <Box sx={{ maxWidth: 900, mx: 'auto' }}>
         <Button component={RouterLink} to={`${base}/returns`} startIcon={<ArrowBackIcon />} sx={{ mb: 2, textTransform: 'none', color: 'text.secondary' }}>Back to cases</Button>
-        <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.8rem', mb: 0.5 }}>Open a return or warranty case</Typography>
+        <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: '1.8rem', mb: 0.5 }}>Open a return or warranty case</Typography>
         <Typography sx={{ color: 'text.secondary', fontSize: '0.86rem', mb: 3 }}>Scan a sold device to load its original invoice, customer and warranty.</Typography>
 
         <Stack spacing={2.5}>

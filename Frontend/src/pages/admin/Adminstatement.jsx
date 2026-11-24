@@ -23,8 +23,8 @@ const PRINT_CSS = `
 }
 `
 
-const label = { fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#087F86', mb: 0.5 }
-const th = { fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#087F86', pb: 1.25, borderBottom: '2px solid #B9CBCD' }
+const label = { fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#0F766E', mb: 0.5 }
+const th = { fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#0F766E', pb: 1.25, borderBottom: '2px solid #B9CBCD' }
 
 export default function AdminStatement() {
   const { id } = useParams()
@@ -87,7 +87,7 @@ export default function AdminStatement() {
         <Alert severity="error" sx={{ maxWidth: 850, mx: 'auto', borderRadius: 2, fontWeight: 600 }}>{error}</Alert>
       ) : (
         <Box className="invoice-sheet" sx={{ maxWidth: 850, mx: 'auto', bgcolor: '#fff', color: '#17333A', p: { xs: 3, sm: 5 }, borderRadius: 1, border: '1px solid #D7E2E3', boxShadow: '0 4px 20px rgba(15,23,42,0.05)', opacity: loading ? 0.6 : 1 }}>
-          <Box className="statement-banner" sx={{ mx: { xs: -3, sm: -5 }, mt: { xs: -3, sm: -5 }, mb: 2.5, px: { xs: 2.5, sm: 4 }, py: 2.25, bgcolor: '#087F86', color: '#fff', borderBottom: '6px solid #20BAC1' }}>
+          <Box className="statement-banner" sx={{ mx: { xs: -3, sm: -5 }, mt: { xs: -3, sm: -5 }, mb: 2.5, px: { xs: 2.5, sm: 4 }, py: 2.25, bgcolor: '#0F766E', color: '#fff', borderBottom: '6px solid #20BAC1' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
               <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
                 <Box component="img" src="/images/logo.png" alt="" sx={{ height: 42, width: 42, objectFit: 'contain', bgcolor: '#fff', borderRadius: 1, p: 0.4 }} />
@@ -159,7 +159,7 @@ export default function AdminStatement() {
                         )}
                       </Box>
                       <Box component="td" sx={{ py: 1.75, fontSize: '0.85rem', textAlign: 'right', verticalAlign: 'top' }}>{r.debit ? money(r.debit) : ''}</Box>
-                      <Box component="td" sx={{ py: 1.75, fontSize: '0.85rem', textAlign: 'right', verticalAlign: 'top', color: '#0F8A5F' }}>{r.credit ? money(r.credit) : ''}</Box>
+                      <Box component="td" sx={{ py: 1.75, fontSize: '0.85rem', textAlign: 'right', verticalAlign: 'top', color: '#047857' }}>{r.credit ? money(r.credit) : ''}</Box>
                       <Box component="td" sx={{ py: 1.75, fontSize: '0.85rem', textAlign: 'right', verticalAlign: 'top', fontWeight: 600 }}>{money(r.balance)}</Box>
                     </Box>
                   )

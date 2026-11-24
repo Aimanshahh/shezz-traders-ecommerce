@@ -18,14 +18,14 @@ import {
 import { isAdminLoggedIn, getAdminUser } from '../../lib/adminAuth.js'
 import { resolveCode, createSale, getProducts, getCustomers, getCustomer } from '../../services/api.js'
 
-const TONE_COLOR = { success: '#0F8A5F', info: '#475569', error: '#C81E1E' }
+const TONE_COLOR = { success: '#047857', info: '#475569', error: '#B91C1C' }
 
 const BORDER_COLOR = '#CBD5E1'
 const INPUT_SX = {
   '& .MuiOutlinedInput-root': {
     '& fieldset': { borderColor: BORDER_COLOR },
     '&:hover fieldset': { borderColor: '#94A3B8' },
-    '&.Mui-focused fieldset': { borderColor: '#0ea5e9' },
+    '&.Mui-focused fieldset': { borderColor: 'info.main' },
   },
 }
 
@@ -294,7 +294,7 @@ export default function AdminNewSale() {
       <Box sx={{ maxWidth: 1280, mx: 'auto', pb: 4 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1} sx={{ mb: 2.5 }}>
           <Box>
-            <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: { xs: '1.55rem', md: '1.85rem' }, lineHeight: 1.1 }}>Create invoice</Typography>
+            <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: { xs: '1.3rem', md: '1.5rem' }, lineHeight: 1.1 }}>Create invoice</Typography>
             <Typography sx={{ color: 'text.secondary', fontSize: '0.82rem', mt: 0.35 }}>Capture the customer, scan available devices, then complete payment details.</Typography>
           </Box>
         </Stack>
@@ -577,7 +577,7 @@ export default function AdminNewSale() {
                 
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ width: '100%' }}>
                   <Typography sx={{ fontSize: '1rem', fontWeight: 800, color: 'text.primary' }}>Total</Typography>
-                  <Typography sx={{ fontSize: '1.45rem', fontWeight: 800, fontFamily: '"Barlow Condensed", sans-serif', color: 'text.primary', whiteSpace: 'nowrap' }}>
+                  <Typography sx={{ fontSize: '1.45rem', fontWeight: 800, fontFamily: 'inherit', color: 'text.primary', whiteSpace: 'nowrap' }}>
                     {money(total)}
                   </Typography>
                 </Stack>
@@ -701,8 +701,8 @@ export default function AdminNewSale() {
                 startIcon={submitting ? <CircularProgress size={20} color="inherit" /> : <AddCircleOutlinedIcon />}
                 sx={{ 
                   mt: 4, borderRadius: 999, fontWeight: 700, py: 1.5,
-                  boxShadow: '0 4px 14px rgba(14,165,233,0.4)',
-                  '&:hover': { boxShadow: '0 6px 20px rgba(14,165,233,0.5)' }
+                  boxShadow: '0 4px 14px rgba(15,118,110,0.4)',
+                  '&:hover': { boxShadow: '0 6px 20px rgba(15,118,110,0.5)' }
                 }}
               >
                 {submitting ? 'Processing...' : payMode === 'full' ? 'Complete Sale' : 'Complete Sale (payment pending)'}

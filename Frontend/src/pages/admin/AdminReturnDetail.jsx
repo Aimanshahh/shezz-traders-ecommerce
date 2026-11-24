@@ -98,7 +98,7 @@ export default function AdminReturnDetail({ shell = ADMIN_SHELL }) {
             <Box sx={card}>
               <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2}>
                 <Box>
-                  <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.85rem', lineHeight: 1.1 }}>{item.caseNumber}</Typography>
+                  <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: '1.85rem', lineHeight: 1.1 }}>{item.caseNumber}</Typography>
                   <Typography sx={{ mt: 0.5, color: 'text.secondary', fontSize: '0.86rem' }}>{item.type === 'warranty_claim' ? 'Warranty claim' : 'Return'} · {item.reason.replaceAll('_', ' ')} · opened {fmtDate(item.openedAt)}</Typography>
                 </Box>
                 <Box sx={{ alignSelf: { sm: 'center' }, px: 1.25, py: 0.6, borderRadius: 1, bgcolor: item.status === 'open' ? 'warning.100' : 'action.hover', color: item.status === 'open' ? 'warning.dark' : 'text.secondary', fontSize: '0.78rem', fontWeight: 700, textTransform: 'capitalize' }}>{item.status}</Box>

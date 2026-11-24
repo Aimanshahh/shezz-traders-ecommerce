@@ -8,7 +8,7 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
-import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner'
+import QrCodeScannerOutlinedIcon from '@mui/icons-material/QrCodeScanner'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import CloseIcon from '@mui/icons-material/Close'
 import IMEIScanner from '../admin/IMEIScanner.jsx'
@@ -182,9 +182,9 @@ export default function AdminDevices({ shell = ADMIN_SHELL }) {
           <Box>
             <Typography
               sx={{
-                fontFamily: '"Barlow Condensed", sans-serif',
+                fontFamily: 'inherit',
                 fontWeight: 800,
-                fontSize: { xs: '1.5rem', md: '1.75rem' },
+                fontSize: { xs: '1.3rem', md: '1.45rem' },
                 lineHeight: 1.1,
                 color: 'text.primary',
                 mb: 0.5,
@@ -201,7 +201,7 @@ export default function AdminDevices({ shell = ADMIN_SHELL }) {
             <Button
               variant="outlined"
               color="info"
-              startIcon={<QrCodeScannerIcon />}
+              startIcon={<QrCodeScannerOutlinedIcon />}
               onClick={() => setScanOpen(true)}
               sx={{ borderRadius: 1.5, fontWeight: 700, px: 2.5 }}
             >
@@ -271,7 +271,7 @@ export default function AdminDevices({ shell = ADMIN_SHELL }) {
                 </Typography>
                 <Typography
                   sx={{
-                    fontFamily: '"Barlow Condensed", sans-serif',
+                    fontFamily: 'inherit',
                     fontWeight: 800,
                     fontSize: '1.8rem',
                     lineHeight: 1.2,
@@ -420,7 +420,7 @@ export default function AdminDevices({ shell = ADMIN_SHELL }) {
             <Box sx={{ textAlign: 'center', px: 3, py: 8 }}>
               <Typography
                 sx={{
-                  fontFamily: '"Barlow Condensed", sans-serif',
+                  fontFamily: 'inherit',
                   fontWeight: 700,
                   fontSize: '1.35rem',
                   color: 'text.primary',

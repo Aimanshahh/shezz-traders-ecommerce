@@ -57,7 +57,7 @@ export default function AdminReturns({ shell = ADMIN_SHELL }) {
       <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between" spacing={2} sx={{ mb: 3 }}>
           <Box>
-            <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: { xs: '1.55rem', md: '1.85rem' } }}>
+            <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: { xs: '1.3rem', md: '1.5rem' } }}>
               Returns & warranty claims
             </Typography>
             <Typography sx={{ color: 'text.secondary', fontSize: '0.86rem' }}>

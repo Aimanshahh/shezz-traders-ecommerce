@@ -50,16 +50,10 @@ app.use(
       // A phone or another machine on the same Wi-Fi reaches the dev server by its
       // private address (e.g. http://192.168.1.20:5173), never by localhost.
       if (PRIVATE_ORIGIN.test(origin)) return callback(null, true)
-<<<<<<< HEAD
-      
-      // FIX: Split comma-separated CLIENT_URL and check against the list
-      const allowedOrigins = (process.env.CLIENT_URL || '').split(',').map(url => url.trim());
+
+      // Split comma-separated CLIENT_URL and check against the list
+      const allowedOrigins = (process.env.CLIENT_URL || '').split(',').map((url) => url.trim())
       if (allowedOrigins.includes(origin)) return callback(null, true)
-      
-=======
-      const allowedOrigins = (process.env.CLIENT_URL || '').split(',').map(url => url.trim());
-if (allowedOrigins.includes(origin)) return callback(null, true)
->>>>>>> origin/server-cors-fix
       callback(new Error(`Origin ${origin} not allowed`))
     },
     credentials: true,

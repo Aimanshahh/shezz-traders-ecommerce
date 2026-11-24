@@ -6,7 +6,7 @@ import {
 } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
+import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHoriz'
 import AddIcon from '@mui/icons-material/Add'
 import PersonAddAltOutlinedIcon from '@mui/icons-material/PersonAddAltOutlined'
 import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined'
@@ -102,9 +102,9 @@ export default function AdminCustomers() {
           sx={{ mb: 3 }}
         >
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <Box sx={{ width: 44, height: 44, display: 'grid', placeItems: 'center', borderRadius: 1.5, bgcolor: 'rgba(8,127,134,0.1)', color: 'info.main' }}><PeopleAltOutlinedIcon /></Box>
+            <Box sx={{ width: 44, height: 44, display: 'grid', placeItems: 'center', borderRadius: 1.5, bgcolor: 'rgba(15,118,110,0.1)', color: 'info.main' }}><PeopleAltOutlinedIcon /></Box>
             <Box>
-              <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: { xs: '1.5rem', md: '1.85rem' }, lineHeight: 1.1, mb: 0.45 }}>Customers &amp; ledgers</Typography>
+              <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: { xs: '1.3rem', md: '1.5rem' }, lineHeight: 1.1, mb: 0.45 }}>Customers &amp; ledgers</Typography>
               <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary' }}>Customer accounts, payments, device ownership and statements.</Typography>
             </Box>
           </Stack>
@@ -114,8 +114,8 @@ export default function AdminCustomers() {
               to="/admin/handover"
               variant="outlined"
               color="info"
-              startIcon={<SwapHorizIcon />}
-              sx={{ borderRadius: 999, fontWeight: 700, px: 2.5 }}
+              startIcon={<SwapHorizOutlinedIcon />}
+              sx={{ borderRadius: 2, fontWeight: 700, px: 2.5 }}
             >
               Dealer handover
             </Button>
@@ -124,7 +124,7 @@ export default function AdminCustomers() {
               color="info"
               startIcon={<AddIcon />}
               onClick={openCreate}
-              sx={{ borderRadius: 999, fontWeight: 700, px: 2.5 }}
+              sx={{ borderRadius: 2, fontWeight: 700, px: 2.5 }}
             >
               New customer
             </Button>
@@ -133,21 +133,21 @@ export default function AdminCustomers() {
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(2, minmax(0, 260px))' }, gap: 1.5, mb: 2.5 }}>
           {[
-            { label: 'Customers', value: total, icon: PeopleAltOutlinedIcon, tone: '#087F86' },
-            { label: 'Due on this page', value: money(pageDue), icon: AccountBalanceWalletOutlinedIcon, tone: pageDue > 0 ? '#C2410C' : '#0F8A5F' },
+            { label: 'Customers', value: total, icon: PeopleAltOutlinedIcon, tone: '#0F766E' },
+            { label: 'Due on this page', value: money(pageDue), icon: AccountBalanceWalletOutlinedIcon, tone: pageDue > 0 ? '#B45309' : '#047857' },
           ].map((t) => (
             <Box key={t.label} sx={{ position: 'relative', p: 2, pl: 2.25, borderRadius: 1.5, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', overflow: 'hidden', '&::before': { content: '""', position: 'absolute', inset: '0 auto 0 0', width: 4, bgcolor: t.tone } }}>
               <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'text.secondary' }}>{t.label}</Typography>
-              <Stack direction="row" justifyContent="space-between" alignItems="center"><Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.75rem', lineHeight: 1.2, mt: 0.45 }}>{t.value}</Typography><t.icon sx={{ color: t.tone, fontSize: 20 }} /></Stack>
+              <Stack direction="row" justifyContent="space-between" alignItems="center"><Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: '1.5rem', lineHeight: 1.2, mt: 0.45 }}>{t.value}</Typography><t.icon sx={{ color: t.tone, fontSize: 20 }} /></Stack>
             </Box>
           ))}
         </Box>
 
         <Box
           sx={{
-            display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.75, mb: 2.5, borderRadius: 999,
+            display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.75, mb: 2.5, borderRadius: 2,
             border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
-            '&:focus-within': { borderColor: 'info.main', boxShadow: '0 0 0 3px rgba(8,127,134,0.08)' },
+            '&:focus-within': { borderColor: 'info.main', boxShadow: '0 0 0 3px rgba(15,118,110,0.08)' },
           }}
         >
           <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
@@ -161,7 +161,7 @@ export default function AdminCustomers() {
             </Box>
           ) : rows.length === 0 ? (
             <Box sx={{ textAlign: 'center', px: 3, py: 8 }}>
-              <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 700, fontSize: '1.35rem', mb: 0.75 }}>
+              <Typography sx={{ fontFamily: 'inherit', fontWeight: 700, fontSize: '1.35rem', mb: 0.75 }}>
                 {q ? 'No matching customers' : 'No customers yet'}
               </Typography>
               <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
@@ -173,7 +173,7 @@ export default function AdminCustomers() {
                   color="info"
                   startIcon={<PersonAddAltOutlinedIcon />}
                   onClick={openCreate}
-                  sx={{ borderRadius: 999, fontWeight: 700, mt: 2 }}
+                  sx={{ borderRadius: 2, fontWeight: 700, mt: 2 }}
                 >
                   New customer
                 </Button>
@@ -181,7 +181,7 @@ export default function AdminCustomers() {
             </Box>
           ) : (
             <>
-              <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: GRID, gap: 2, px: 3, py: 1.5, bgcolor: '#F4F8F8', borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: GRID, gap: 2, px: 3, py: 1.5, bgcolor: '#F8FAFC', borderBottom: '1px solid', borderColor: 'divider' }}>
                 {HEADS.map((h) => (
                   <Typography key={h || 'x'} sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'text.secondary' }}>
                     {h}
@@ -213,7 +213,7 @@ export default function AdminCustomers() {
                     <Typography sx={{ fontSize: '0.84rem', display: { xs: 'none', md: 'block' } }}>{st.devices || 0}</Typography>
                     <Typography sx={{ fontSize: '0.84rem', display: { xs: 'none', md: 'block' } }}>{money(st.spent)}</Typography>
                     <Typography sx={{ fontSize: '0.84rem', display: { xs: 'none', md: 'block' } }}>{money(st.paid)}</Typography>
-                    <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 700, fontSize: '1rem', color: due ? '#C81E1E' : st.balance < 0 ? '#0F8A5F' : 'text.primary' }}>
+                    <Typography sx={{ fontFamily: 'inherit', fontWeight: 700, fontSize: '1rem', color: due ? '#B91C1C' : st.balance < 0 ? '#047857' : 'text.primary' }}>
                       {st.balance < 0 ? `${money(-st.balance)} credit` : money(st.balance)}
                     </Typography>
                     <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', display: { xs: 'none', md: 'block' } }}>{fmtDate(st.lastPurchase)}</Typography>
@@ -295,7 +295,7 @@ export default function AdminCustomers() {
             disabled={creating}
             variant="contained"
             color="info"
-            sx={{ textTransform: 'none', borderRadius: 999, fontWeight: 700, px: 3 }}
+            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700, px: 3 }}
           >
             {creating ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Add customer'}
           </Button>

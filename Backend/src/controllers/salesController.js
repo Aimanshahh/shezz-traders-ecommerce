@@ -496,9 +496,14 @@ export async function listSales(req, res, next) {
                 $subtract: [
                   { $subtract: ['$total', { $ifNull: ['$returnedAmount', 0] }] },
                   {
-                    $subtract: [
-                      { $add: ['$amountPaid', { $ifNull: ['$paidLater', 0] }] },
-                      { $ifNull: ['$refundedAmount', 0] },
+                    $add: [
+                      {
+                        $subtract: [
+                          { $add: ['$amountPaid', { $ifNull: ['$paidLater', 0] }] },
+                          { $ifNull: ['$refundedAmount', 0] },
+                        ],
+                      },
+                      { $ifNull: ['$discountLater', 0] },
                     ],
                   },
                 ],

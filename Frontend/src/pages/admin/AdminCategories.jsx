@@ -139,9 +139,9 @@ export default function AdminCategories() {
           <Box>
             <Typography
               sx={{
-                fontFamily: '"Barlow Condensed", sans-serif',
+                fontFamily: 'inherit',
                 fontWeight: 800,
-                fontSize: { xs: '1.5rem', md: '1.75rem' },
+                fontSize: { xs: '1.3rem', md: '1.45rem' },
                 lineHeight: 1.1,
                 letterSpacing: '-0.01em',
                 color: 'text.primary',
@@ -284,7 +284,7 @@ export default function AdminCategories() {
                   label={`${c.productCount} ${c.productCount === 1 ? 'product' : 'products'}`}
                   size="small"
                   sx={{
-                    bgcolor: 'rgba(0,131,143,0.08)',
+                    bgcolor: 'rgba(15,118,110,0.08)',
                     color: 'info.main',
                     fontWeight: 700,
                     fontSize: '0.68rem',
@@ -300,7 +300,7 @@ export default function AdminCategories() {
                     onClick={() => openEdit(c)}
                     sx={{
                       color: 'text.secondary',
-                      '&:hover': { color: 'info.main', bgcolor: 'rgba(0,131,143,0.08)' },
+                      '&:hover': { color: 'info.main', bgcolor: 'rgba(15,118,110,0.08)' },
                     }}
                   >
                     <EditOutlinedIcon sx={{ fontSize: 17 }} />
@@ -310,7 +310,7 @@ export default function AdminCategories() {
                     onClick={() => setToDelete(c)}
                     sx={{
                       color: 'text.secondary',
-                      '&:hover': { color: 'error.main', bgcolor: 'rgba(227,30,36,0.08)' },
+                      '&:hover': { color: 'error.main', bgcolor: 'rgba(185,28,28,0.08)' },
                     }}
                   >
                     <DeleteOutlineIcon sx={{ fontSize: 17 }} />
@@ -463,7 +463,7 @@ function EmptyState({ hasItems, onAdd, onClear }) {
           width: 72,
           height: 72,
           borderRadius: '50%',
-          bgcolor: 'rgba(0,131,143,0.08)',
+          bgcolor: 'rgba(15,118,110,0.08)',
           color: 'info.main',
           display: 'flex',
           alignItems: 'center',
@@ -475,7 +475,7 @@ function EmptyState({ hasItems, onAdd, onClear }) {
       </Box>
       <Typography
         sx={{
-          fontFamily: '"Barlow Condensed", sans-serif',
+          fontFamily: 'inherit',
           fontWeight: 700,
           fontSize: '1.35rem',
           color: 'text.primary',

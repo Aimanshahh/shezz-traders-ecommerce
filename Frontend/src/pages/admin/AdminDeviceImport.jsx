@@ -6,12 +6,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined'
-<<<<<<< HEAD
 import Papa from 'papaparse'
-// FIX: Added /browser to prevent Vite build error
-=======
-import Papa from 'papaparse' 
->>>>>>> origin/server-cors-fix
 import readXlsxFile from 'read-excel-file/browser'
 import { ADMIN_SHELL } from '../../lib/stockShell.js'
 import { getProducts, previewDeviceImport, importDevices } from '../../services/api.js'
@@ -213,9 +208,9 @@ export default function AdminDeviceImport({ shell = ADMIN_SHELL }) {
 
         <Typography
           sx={{
-            fontFamily: '"Barlow Condensed", sans-serif',
+            fontFamily: 'inherit',
             fontWeight: 800,
-            fontSize: { xs: '1.5rem', md: '1.75rem' },
+            fontSize: { xs: '1.3rem', md: '1.45rem' },
             lineHeight: 1.1,
             mb: 0.5,
           }}
@@ -237,10 +232,10 @@ export default function AdminDeviceImport({ shell = ADMIN_SHELL }) {
               borderColor: 'divider',
             }}
           >
-            <CheckCircleOutlinedIcon sx={{ fontSize: 48, color: '#0F8A5F', mb: 1 }} />
+            <CheckCircleOutlinedIcon sx={{ fontSize: 48, color: '#047857', mb: 1 }} />
             <Typography
               sx={{
-                fontFamily: '"Barlow Condensed", sans-serif',
+                fontFamily: 'inherit',
                 fontWeight: 700,
                 fontSize: '1.5rem',
                 mb: 0.5,
@@ -418,8 +413,8 @@ export default function AdminDeviceImport({ shell = ADMIN_SHELL }) {
                     mb: 2.5,
                   }}
                 >
-                  <Tile label="Ready to import" value={s.importable} color="#0F8A5F" />
-                  <Tile label="Invalid" value={s.invalid} color="#C81E1E" />
+                  <Tile label="Ready to import" value={s.importable} color="#047857" />
+                  <Tile label="Invalid" value={s.invalid} color="#B91C1C" />
                   <Tile label="Duplicate in file" value={s.duplicatesInFile} color="#B45309" />
                   <Tile label="Already in inventory" value={s.alreadyInInventory} color="#B45309" />
                 </Box>
@@ -495,7 +490,7 @@ function Tile({ label, value, color }) {
     <Box sx={{ p: 1.75, borderRadius: 2, bgcolor: 'action.hover' }}>
       <Typography
         sx={{
-          fontFamily: '"Barlow Condensed", sans-serif',
+          fontFamily: 'inherit',
           fontWeight: 800,
           fontSize: '1.7rem',
           lineHeight: 1.1,

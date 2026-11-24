@@ -10,7 +10,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import ClearIcon from '@mui/icons-material/Clear'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale'
-import DevicesIcon from '@mui/icons-material/Devices'
+import DevicesOutlinedIcon from '@mui/icons-material/Devices'
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
 import HourglassBottomIcon from '@mui/icons-material/HourglassBottom'
 import AdminLayout from './AdminLayout.jsx'
@@ -22,7 +22,7 @@ import { getSales } from '../../services/api.js'
 const GRID = '118px 108px minmax(0, 1.7fr) 72px 96px 128px minmax(150px, 1fr) 24px'
 
 const PILL_FIELD = {
-  '& .MuiOutlinedInput-root': { borderRadius: 999, height: 40, bgcolor: 'background.paper', fontSize: '0.86rem' },
+  '& .MuiOutlinedInput-root': { borderRadius: 2, height: 40, bgcolor: 'background.paper', fontSize: '0.86rem' },
   '& .MuiInputLabel-root': { fontSize: '0.84rem' },
 }
 
@@ -35,18 +35,23 @@ const PAY_FILTERS = [
 const balanceOf = (s) =>
   Math.max(
     0,
-    Number(s.total || 0) - Number(s.returnedAmount || 0) - Number(s.amountPaid || 0) - Number(s.paidLater || 0) + Number(s.refundedAmount || 0)
+    Number(s.total || 0) -
+      Number(s.returnedAmount || 0) -
+      Number(s.amountPaid || 0) -
+      Number(s.paidLater || 0) -
+      Number(s.discountLater || 0) +
+      Number(s.refundedAmount || 0)
   )
 
 const PAY_STYLE = {
-  paid: { label: 'Paid', bg: 'rgba(16,185,129,0.12)', color: '#0F8A5F' },
-  partial: { label: 'Partial', bg: 'rgba(245,158,11,0.14)', color: '#B45309' },
-  unpaid: { label: 'Pending payment', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
+  paid: { label: 'Paid', bg: 'rgba(4,120,87,0.12)', color: '#047857' },
+  partial: { label: 'Partial', bg: 'rgba(180,83,9,0.14)', color: '#B45309' },
+  unpaid: { label: 'Pending payment', bg: 'rgba(185,28,28,0.1)', color: '#B91C1C' },
 }
 
 const SALE_STATUS_STYLE = {
-  pending: { label: 'Pending review', bg: 'rgba(245,158,11,0.14)', color: '#B45309' },
-  rejected: { label: 'Rejected', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
+  pending: { label: 'Pending review', bg: 'rgba(180,83,9,0.14)', color: '#B45309' },
+  rejected: { label: 'Rejected', bg: 'rgba(185,28,28,0.1)', color: '#B91C1C' },
   void: { label: 'Void', bg: 'rgba(100,116,139,0.12)', color: '#475569' },
 }
 
@@ -158,7 +163,7 @@ export default function AdminSales() {
         >
           <Box>
             <Typography
-              sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: { xs: '1.5rem', md: '1.75rem' }, lineHeight: 1.1, mb: 0.5 }}
+              sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: { xs: '1.3rem', md: '1.45rem' }, lineHeight: 1.1, mb: 0.5 }}
             >
               Offline sales
             </Typography>
@@ -172,7 +177,7 @@ export default function AdminSales() {
             variant="contained"
             color="info"
             startIcon={<AddIcon />}
-            sx={{ borderRadius: 999, fontWeight: 700, px: 2.5, boxShadow: '0 4px 14px rgba(14,165,233,0.4)' }}
+            sx={{ borderRadius: 2, fontWeight: 700, px: 2.5,  }}
           >
             New sale
           </Button>
@@ -193,7 +198,7 @@ export default function AdminSales() {
             borderRight: { xs: 'none', md: '1px solid' }, borderColor: 'divider',
             display: 'flex', alignItems: 'center', gap: 3
           }}>
-            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(16,185,129,0.1)', color: '#10b981', display: 'flex' }}>
+            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(4,120,87,0.1)', color: 'success.main', display: 'flex' }}>
               <AttachMoneyIcon fontSize="large" />
             </Box>
             <Box>
@@ -201,16 +206,16 @@ export default function AdminSales() {
                 {pendingView ? 'Quoted Value' : 'Total Revenue'}
               </Typography>
               {loading ? <Skeleton width={120} height={36} /> : (
-                <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.8rem', lineHeight: 1, color: 'text.primary' }}>
+                <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: '1.8rem', lineHeight: 1, color: 'text.primary' }}>
                   {safeMoney(totals?.revenue)}
                 </Typography>
               )}
               <Stack direction="row" spacing={1.5} sx={{ mt: 1 }}>
                 <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', fontWeight: 500 }}>
-                  <strong style={{ color: '#111' }}>{totals?.count || 0}</strong> Sales
+                  <strong style={{ color: '#0F172A' }}>{totals?.count || 0}</strong> Sales
                 </Typography>
                 <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', fontWeight: 500 }}>
-                  <strong style={{ color: '#111' }}>{totals?.devices || 0}</strong> Devices
+                  <strong style={{ color: '#0F172A' }}>{totals?.devices || 0}</strong> Devices
                 </Typography>
               </Stack>
             </Box>
@@ -230,11 +235,11 @@ export default function AdminSales() {
               Pending Payment
             </Typography>
             {loading ? <Skeleton width={100} height={32} /> : (
-              <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.6rem', lineHeight: 1, color: pending?.outstanding > 0 ? '#f59e0b' : 'text.primary' }}>
+              <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: '1.6rem', lineHeight: 1, color: pending?.outstanding > 0 ? 'warning.main' : 'text.primary' }}>
                 {safeMoney(pending?.outstanding)}
               </Typography>
             )}
-            <Typography sx={{ fontSize: '0.75rem', color: pending?.overdue > 0 ? '#C81E1E' : 'text.secondary', mt: 1, fontWeight: 500 }}>
+            <Typography sx={{ fontSize: '0.75rem', color: pending?.overdue > 0 ? '#B91C1C' : 'text.secondary', mt: 1, fontWeight: 500 }}>
               {pending?.count ? `${pending.count} invoice${pending.count === 1 ? '' : 's'}${pending?.overdue ? ` · ${pending.overdue} overdue` : ''}` : 'Nothing pending'}
             </Typography>
           </Box>
@@ -251,7 +256,7 @@ export default function AdminSales() {
               Awaiting Review
             </Typography>
             {loading ? <Skeleton width={60} height={32} /> : (
-              <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.6rem', lineHeight: 1, color: review?.count > 0 ? '#0ea5e9' : 'text.primary' }}>
+              <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: '1.6rem', lineHeight: 1, color: review?.count > 0 ? 'info.main' : 'text.primary' }}>
                 {review?.count || 0}
               </Typography>
             )}
@@ -265,9 +270,9 @@ export default function AdminSales() {
         <Stack direction="row" alignItems="center" useFlexGap flexWrap="wrap" sx={{ mb: 2.5, gap: 1.5 }}>
           <Box
             sx={{
-              flex: '1 1 280px', minWidth: 240, display: 'flex', alignItems: 'center', gap: 1, px: 2, height: 40, borderRadius: 999,
+              flex: '1 1 280px', minWidth: 240, display: 'flex', alignItems: 'center', gap: 1, px: 2, height: 40, borderRadius: 2,
               border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
-              '&:focus-within': { borderColor: 'info.main', boxShadow: '0 0 0 3px rgba(14,165,233,0.12)' },
+              '&:focus-within': { borderColor: 'info.main', boxShadow: '0 0 0 3px rgba(15,118,110,0.12)' },
             }}
           >
             <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
@@ -285,7 +290,7 @@ export default function AdminSales() {
           </Box>
 
           {/* Invoice / submission status */}
-          <Box sx={{ display: 'flex', height: 40, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', p: '3px', gap: '2px' }}>
+          <Box sx={{ display: 'flex', height: 40, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', p: '3px', gap: '2px' }}>
             {STATUS_TABS.map((t) => {
               const active = status === t.value
               return (
@@ -293,7 +298,7 @@ export default function AdminSales() {
                   key={t.value}
                   onClick={() => { setStatus(t.value); setPage(1) }}
                   sx={{
-                    px: 2, borderRadius: 999, fontSize: '0.8rem', fontWeight: 700,
+                    px: 2, borderRadius: 2, fontSize: '0.8rem', fontWeight: 700,
                     color: active ? '#fff' : 'text.secondary',
                     bgcolor: active ? 'info.main' : 'transparent',
                     transition: 'background-color 0.15s ease, color 0.15s ease',
@@ -307,7 +312,7 @@ export default function AdminSales() {
           </Box>
 
           {/* Payment segmented filter */}
-          <Box sx={{ display: 'flex', height: 40, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', p: '3px', gap: '2px' }}>
+          <Box sx={{ display: 'flex', height: 40, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', p: '3px', gap: '2px' }}>
             {PAY_FILTERS.map((f) => {
               const active = payFilterActive === f.value
               return (
@@ -315,7 +320,7 @@ export default function AdminSales() {
                   key={f.value}
                   onClick={() => { setPayment(f.value); setPage(1) }}
                   sx={{
-                    px: 2, borderRadius: 999, fontSize: '0.8rem', fontWeight: 700,
+                    px: 2, borderRadius: 2, fontSize: '0.8rem', fontWeight: 700,
                     color: active ? '#fff' : 'text.secondary',
                     bgcolor: active ? 'info.main' : 'transparent',
                     transition: 'background-color 0.15s ease, color 0.15s ease',
@@ -347,7 +352,7 @@ export default function AdminSales() {
             sx={{ width: 160, ...PILL_FIELD }}
           />
           {hasFilters && (
-            <Button onClick={clearFilters} startIcon={<ClearIcon />} sx={{ height: 40, borderRadius: 999, textTransform: 'none', fontWeight: 700, color: 'text.secondary' }}>
+            <Button onClick={clearFilters} startIcon={<ClearIcon />} sx={{ height: 40, borderRadius: 2, textTransform: 'none', fontWeight: 700, color: 'text.secondary' }}>
               Clear
             </Button>
           )}
@@ -364,7 +369,7 @@ export default function AdminSales() {
               <Box sx={{ p: 2, borderRadius: '50%', bgcolor: 'action.hover', mb: 2, display: 'flex' }}>
                 <ReceiptLongIcon sx={{ fontSize: 40, color: 'text.secondary' }} />
               </Box>
-              <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 700, fontSize: '1.35rem', mb: 0.75 }}>
+              <Typography sx={{ fontFamily: 'inherit', fontWeight: 700, fontSize: '1.35rem', mb: 0.75 }}>
                 {hasFilters ? 'No matching sales' : 'No sales yet'}
               </Typography>
               <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mb: 3 }}>
@@ -377,7 +382,7 @@ export default function AdminSales() {
                   variant="outlined"
                   color="info"
                   startIcon={<AddIcon />}
-                  sx={{ borderRadius: 999, fontWeight: 700 }}
+                  sx={{ borderRadius: 2, fontWeight: 700 }}
                 >
                   New sale
                 </Button>
@@ -417,9 +422,9 @@ export default function AdminSales() {
                   : ''
                 const saleStatus = s.status && s.status !== 'completed' ? SALE_STATUS_STYLE[s.status] : null
                 const statusChip = saleStatus ? (
-                  <Chip label={saleStatus.label} size="small" sx={{ bgcolor: saleStatus.bg, color: saleStatus.color, fontWeight: 700, fontSize: '0.68rem', height: 22, borderRadius: 999 }} />
+                  <Chip label={saleStatus.label} size="small" sx={{ bgcolor: saleStatus.bg, color: saleStatus.color, fontWeight: 700, fontSize: '0.68rem', height: 22, borderRadius: 2 }} />
                 ) : (
-                  <Chip label={pay.label} size="small" sx={{ bgcolor: pay.bg, color: pay.color, fontWeight: 700, fontSize: '0.68rem', height: 22, borderRadius: 999 }} />
+                  <Chip label={pay.label} size="small" sx={{ bgcolor: pay.bg, color: pay.color, fontWeight: 700, fontSize: '0.68rem', height: 22, borderRadius: 2 }} />
                 )
                 return (
                   <Box
@@ -442,13 +447,13 @@ export default function AdminSales() {
                       </Box>
                       <Typography sx={{ fontSize: '0.86rem', textAlign: 'center' }}>{s.itemCount}</Typography>
                       <Typography noWrap sx={{ fontSize: '0.84rem', color: 'text.secondary' }}>{labelOf(SALE_SOURCES, s.source)}</Typography>
-                      <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 700, fontSize: '1.05rem', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <Typography sx={{ fontFamily: 'inherit', fontWeight: 700, fontSize: '1.05rem', whiteSpace: 'nowrap', textAlign: 'right' }}>
                         {money(s.total)}
                       </Typography>
                       <Box sx={{ minWidth: 0, pl: 2 }}>
                         {statusChip}
                         {dueLine && (
-                          <Typography noWrap sx={{ fontSize: '0.7rem', fontWeight: 600, mt: 0.4, color: overdue ? '#C81E1E' : 'text.secondary' }}>
+                          <Typography noWrap sx={{ fontSize: '0.7rem', fontWeight: 600, mt: 0.4, color: overdue ? '#B91C1C' : 'text.secondary' }}>
                             {dueLine}
                           </Typography>
                         )}
@@ -466,10 +471,10 @@ export default function AdminSales() {
                         </Typography>
                       </Box>
                       <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                        <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 700, fontSize: '1.05rem', whiteSpace: 'nowrap' }}>{money(s.total)}</Typography>
+                        <Typography sx={{ fontFamily: 'inherit', fontWeight: 700, fontSize: '1.05rem', whiteSpace: 'nowrap' }}>{money(s.total)}</Typography>
                         {statusChip}
                         {dueLine && (
-                          <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, mt: 0.4, color: overdue ? '#C81E1E' : 'text.secondary' }}>
+                          <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, mt: 0.4, color: overdue ? '#B91C1C' : 'text.secondary' }}>
                             {`${money(owing)} due${s.dueDate ? ` · ${overdue ? 'overdue' : fmtDate(s.dueDate)}` : ''}`}
                           </Typography>
                         )}

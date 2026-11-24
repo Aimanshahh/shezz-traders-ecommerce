@@ -360,7 +360,8 @@ function crmInvoiceTemplate({ sale, items, settings }) {
   const paid = Number(sale.amountPaid || 0) + Number(sale.paidLater || 0)
   const returned = Number(sale.returnedAmount || 0)
   const refunded = Number(sale.refundedAmount || 0)
-  const balance = Math.max(0, Number(sale.total || 0) - returned - paid + refunded)
+  const discounts = Number(sale.discountLater || 0)
+  const balance = Math.max(0, Number(sale.total || 0) - returned - paid - discounts + refunded)
   const date = new Date(sale.saleDate).toLocaleDateString('en-GB', {
     day: '2-digit', month: 'long', year: 'numeric',
   })

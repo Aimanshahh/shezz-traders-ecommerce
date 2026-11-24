@@ -7,7 +7,7 @@ import IMEIScanner from '../admin/IMEIScanner.jsx'
 import { isAdminLoggedIn } from '../../lib/adminAuth.js'
 import { lookupCustomer, getCustomer, resolveTransfer, createTransfer } from '../../services/api.js'
 
-const TONE_COLOR = { success: '#0F8A5F', info: '#475569', error: '#C81E1E' }
+const TONE_COLOR = { success: '#047857', info: '#475569', error: '#B91C1C' }
 const card = { p: 3, borderRadius: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -139,7 +139,7 @@ export default function AdminHandover() {
   return (
     <AdminLayout title="Dealer handover">
       <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
-        <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.75rem', lineHeight: 1.1, mb: 0.5 }}>
+        <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: '1.5rem', lineHeight: 1.1, mb: 0.5 }}>
           Dealer handover
         </Typography>
         <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mb: 3 }}>

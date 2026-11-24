@@ -120,9 +120,9 @@ export default function AdminBoxes({ shell = ADMIN_SHELL }) {
           <Box>
             <Typography
               sx={{
-                fontFamily: '"Barlow Condensed", sans-serif',
+                fontFamily: 'inherit',
                 fontWeight: 800,
-                fontSize: { xs: '1.5rem', md: '1.75rem' },
+                fontSize: { xs: '1.3rem', md: '1.45rem' },
                 lineHeight: 1.1,
                 mb: 0.5,
               }}
@@ -201,7 +201,7 @@ export default function AdminBoxes({ shell = ADMIN_SHELL }) {
             <Box sx={{ textAlign: 'center', px: 3, py: 8 }}>
               <Typography
                 sx={{
-                  fontFamily: '"Barlow Condensed", sans-serif',
+                  fontFamily: 'inherit',
                   fontWeight: 700,
                   fontSize: '1.35rem',
                   mb: 0.75,

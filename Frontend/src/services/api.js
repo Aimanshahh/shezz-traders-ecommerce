@@ -538,6 +538,12 @@ export async function getAdminReport(params = {}) {
   const qs = new URLSearchParams(clean).toString()
   return request(`/reports/summary${qs ? `?${qs}` : ''}`)
 }
+
+export async function getMonthlyReport(params = {}) {
+  const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+  const qs = new URLSearchParams(clean).toString()
+  return request(`/reports/monthly${qs ? `?${qs}` : ''}`)
+}
 // ══════════════════════════════════════════════════════
 //  SALESPERSON  (/api/staff)
 //  Responses here never carry prices, totals or customer balances.

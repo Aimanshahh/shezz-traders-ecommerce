@@ -5,7 +5,8 @@ export const outstandingOf = (sale) =>
     sale.total -
       (sale.returnedAmount || 0) -
       sale.amountPaid -
-      (sale.paidLater || 0) +
+      (sale.paidLater || 0) -
+      (sale.discountLater || 0) +
       (sale.refundedAmount || 0)
   )
 
@@ -82,11 +83,27 @@ export function buildEntries(sales, payments, returnCases = []) {
       ref: p.reference,
       paymentId: p._id,
       description: p.voided
-        ? `VOIDED ${method} payment of ${p.amount}${p.voidReason ? ` (${p.voidReason})` : ''}`
+        ? `VOIDED ${method} payment of ${p.amount}${p.discount > 0 ? ` + ${p.discount} discount` : ''}${p.voidReason ? ` (${p.voidReason})` : ''}`
         : `${method} payment${applied}${p.note ? ` · ${p.note}` : ''}`,
       debit: 0,
       credit: p.voided ? 0 : p.amount,
     })
+    if (!p.voided && p.discount > 0) {
+      entries.push({
+        date: p.date,
+        createdAt: p.createdAt,
+        order: 2,
+        type: 'discount',
+        ref: p.reference,
+        paymentId: p._id,
+        saleId: p.discountSale || null,
+        description: `Discount on ${invoiceOf.get(String(p.discountSale)) || 'invoice'}${
+          p.note ? ` · ${p.note}` : ''
+        }`,
+        debit: 0,
+        credit: p.discount,
+      })
+    }
   })
 
   returnCases.forEach((c) => {

@@ -40,7 +40,7 @@ export default function AdminCrmSettings() {
   return (
     <AdminLayout title="CRM settings">
       <Box sx={{ maxWidth: 760, mx: 'auto' }}>
-        <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: '1.75rem', lineHeight: 1.1, mb: 0.5 }}>
+        <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: '1.5rem', lineHeight: 1.1, mb: 0.5 }}>
           Invoice and warranty settings
         </Typography>
         <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mb: 3 }}>
@@ -88,7 +88,7 @@ export default function AdminCrmSettings() {
                   disabled={saving}
                   variant="contained"
                   color="info"
-                  sx={{ borderRadius: 999, fontWeight: 700, px: 3 }}
+                  sx={{ borderRadius: 2, fontWeight: 700, px: 3 }}
                 >
                   {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save settings'}
                 </Button>

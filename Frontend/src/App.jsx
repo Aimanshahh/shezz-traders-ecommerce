@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { ThemeProvider } from '@mui/material'
+import adminTheme from './theme/adminTheme.js'
 import Layout from './components/layout/Layout.jsx'
 import Home from './pages/Home.jsx'
 import Shop from './pages/shop.jsx'
@@ -53,8 +55,10 @@ function PublicLayout({ children }) {
 }
 
 function AdminRoutes() {
+  // The console uses its own theme; the storefront keeps the base brand theme.
   return (
-    <Routes>
+    <ThemeProvider theme={adminTheme}>
+      <Routes>
       <Route path="/admin" element={<AdminLogin />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/admin/products" element={<AdminProducts />} />
@@ -83,7 +87,8 @@ function AdminRoutes() {
       <Route path="/admin/returns/:id" element={<AdminReturnDetail />} />
       <Route path="/admin/reports" element={<AdminReports />} />
       <Route path="/admin/staff" element={<AdminStaff />} />
-    </Routes>
+      </Routes>
+    </ThemeProvider>
   )
 }
 

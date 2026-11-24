@@ -22,7 +22,7 @@ import {
   getProducts,
 } from '../../services/api.js'
 
-const TONE_COLOR = { success: '#0F8A5F', info: '#475569', error: '#C81E1E' }
+const TONE_COLOR = { success: '#047857', info: '#475569', error: '#B91C1C' }
 
 function describeDevice(r, imei) {
   if (r.created.length) return { tone: 'success', text: `New device added: ${imei}` }
@@ -221,8 +221,8 @@ export default function AdminBoxDetail({ shell = ADMIN_SHELL }) {
                 }}
               >
                 <Tile label={box.expectedCount != null ? `Devices (expected ${box.expectedCount})` : 'Devices'} value={s.total} warn={box.mismatch} />
-                <Tile label="Available" value={s.available} color="#0F8A5F" />
-                <Tile label="Sold" value={s.sold} color="#00717A" />
+                <Tile label="Available" value={s.available} color="#047857" />
+                <Tile label="Sold" value={s.sold} color="#115E59" />
                 {isCarton ? <Tile label="Boxes inside" value={s.childBoxes} /> : <Tile label="Other status" value={s.other} />}
               </Box>
               {box.mismatch && (
@@ -383,7 +383,7 @@ function Tile({ label, value, color, warn }) {
     <Box sx={{ p: 1.75, borderRadius: 2, bgcolor: 'action.hover' }}>
       <Typography
         sx={{
-          fontFamily: '"Barlow Condensed", sans-serif',
+          fontFamily: 'inherit',
           fontWeight: 800,
           fontSize: '1.7rem',
           lineHeight: 1.1,

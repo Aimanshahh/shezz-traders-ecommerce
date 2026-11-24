@@ -11,7 +11,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import { loginAdmin, logoutAdmin, isAdminLoggedIn, isSalespersonRole } from '../../lib/adminAuth.js'
-import { BRAND } from '../../theme/theme.js'
+import { ADMIN } from '../../theme/adminTheme.js'
 
 export default function AdminLogin() {
   const navigate = useNavigate()
@@ -70,8 +70,8 @@ export default function AdminLogin() {
           width: 520,
           height: 520,
           borderRadius: '50%',
-          bgcolor: BRAND.teal,
-          opacity: 0.15,
+          bgcolor: ADMIN.accentLight,
+          opacity: 0.16,
           filter: 'blur(140px)',
           pointerEvents: 'none',
         }}
@@ -84,8 +84,8 @@ export default function AdminLogin() {
           width: 520,
           height: 520,
           borderRadius: '50%',
-          bgcolor: BRAND.red,
-          opacity: 0.12,
+          bgcolor: ADMIN.accent,
+          opacity: 0.22,
           filter: 'blur(140px)',
           pointerEvents: 'none',
         }}
@@ -102,7 +102,7 @@ export default function AdminLogin() {
           />
           <Typography
             sx={{
-              fontFamily: '"Barlow Condensed", sans-serif',
+              fontFamily: 'inherit',
               fontWeight: 700,
               fontSize: '1.15rem',
               color: '#fff',
@@ -110,7 +110,7 @@ export default function AdminLogin() {
             }}
           >
             SHEZZ{' '}
-            <Box component="span" sx={{ color: BRAND.teal }}>
+            <Box component="span" sx={{ color: ADMIN.accentLight }}>
               ADMIN
             </Box>
           </Typography>
@@ -132,12 +132,12 @@ export default function AdminLogin() {
         <Container maxWidth="xs" disableGutters>
           <Box
             sx={{
-              p: { xs: 3.5, md: 4.5 },
-              borderRadius: 2,
+              p: { xs: 3, md: 3.5 },
+              borderRadius: '16px',
               bgcolor: 'background.paper',
               border: '1px solid',
               borderColor: 'divider',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
+              boxShadow: '0 24px 60px rgba(2,6,23,0.45)',
             }}
           >
             {/* Lock badge */}
@@ -146,7 +146,7 @@ export default function AdminLogin() {
                 width: 48,
                 height: 48,
                 borderRadius: '50%',
-                bgcolor: 'rgba(0,131,143,0.12)',
+                bgcolor: 'rgba(15,118,110,0.12)',
                 color: 'info.main',
                 display: 'flex',
                 alignItems: 'center',
@@ -159,13 +159,12 @@ export default function AdminLogin() {
 
             <Typography
               sx={{
-                fontFamily: '"Barlow Condensed", sans-serif',
-                fontWeight: 800,
-                fontSize: { xs: '1.6rem', md: '1.85rem' },
-                lineHeight: 1.1,
-                letterSpacing: '-0.01em',
+                fontWeight: 700,
+                fontSize: { xs: '1.35rem', md: '1.5rem' },
+                lineHeight: 1.2,
+                letterSpacing: '-0.02em',
                 color: 'text.primary',
-                mb: 1,
+                mb: 0.75,
               }}
             >
               Admin sign in
@@ -269,9 +268,9 @@ export default function AdminLogin() {
                   disabled={loading}
                   endIcon={!loading && <ArrowForwardIcon />}
                   sx={{
-                    borderRadius: 999,
-                    fontWeight: 700,
-                    py: 1.35,
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    py: 1.2,
                     mt: 0.5,
                   }}
                 >
@@ -286,9 +285,9 @@ export default function AdminLogin() {
 
           </Box>
 
-                    <Typography sx={{ textAlign: 'center', mt: 2.5, fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>
+          <Typography sx={{ textAlign: 'center', mt: 2.5, fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>
             Salesperson?{' '}
-            <Box component={RouterLink} to="/staff" sx={{ color: BRAND.teal, fontWeight: 700 }}>
+            <Box component={RouterLink} to="/staff" sx={{ color: ADMIN.accentLight, fontWeight: 600 }}>
               Sign in here
             </Box>
           </Typography>
@@ -305,7 +304,7 @@ export default function AdminLogin() {
                 textTransform: 'none',
                 fontWeight: 500,
                 fontSize: '0.8rem',
-                '&:hover': { color: BRAND.teal, bgcolor: 'transparent' },
+                '&:hover': { color: ADMIN.accentLight, bgcolor: 'transparent' },
               }}
             >
               Back to store

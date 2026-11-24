@@ -118,11 +118,11 @@ export default function AdminStaff() {
       <Box sx={{ maxWidth: 1300, mx: 'auto' }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 3 }}>
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <Box sx={{ width: 44, height: 44, display: 'grid', placeItems: 'center', borderRadius: 1.5, bgcolor: 'rgba(8,127,134,0.1)', color: 'info.main' }}>
+            <Box sx={{ width: 44, height: 44, display: 'grid', placeItems: 'center', borderRadius: 1.5, bgcolor: 'rgba(15,118,110,0.1)', color: 'info.main' }}>
               <BadgeOutlinedIcon />
             </Box>
             <Box>
-              <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 800, fontSize: { xs: '1.5rem', md: '1.85rem' }, lineHeight: 1.1 }}>
+              <Typography sx={{ fontFamily: 'inherit', fontWeight: 800, fontSize: { xs: '1.3rem', md: '1.5rem' }, lineHeight: 1.1 }}>
                 Salesperson accounts
               </Typography>
               <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary' }}>
@@ -130,7 +130,7 @@ export default function AdminStaff() {
               </Typography>
             </Box>
           </Stack>
-          <Button onClick={() => { setForm({ name: '', email: '', password: '' }); setFormError(''); setCreateOpen(true) }} variant="contained" color="info" startIcon={<AddIcon />} sx={{ borderRadius: 999, fontWeight: 700, px: 2.5 }}>
+          <Button onClick={() => { setForm({ name: '', email: '', password: '' }); setFormError(''); setCreateOpen(true) }} variant="contained" color="info" startIcon={<AddIcon />} sx={{ borderRadius: 2, fontWeight: 700, px: 2.5 }}>
             New salesperson
           </Button>
         </Stack>
@@ -142,12 +142,12 @@ export default function AdminStaff() {
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress size={32} sx={{ color: 'info.main' }} /></Box>
           ) : users.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 8 }}>
-              <Typography sx={{ fontFamily: '"Barlow Condensed", sans-serif', fontWeight: 700, fontSize: '1.3rem' }}>No accounts yet</Typography>
+              <Typography sx={{ fontFamily: 'inherit', fontWeight: 700, fontSize: '1.3rem' }}>No accounts yet</Typography>
               <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>Create a salesperson account to get started.</Typography>
             </Box>
           ) : (
             <>
-              <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: GRID, gap: 2, px: 3, py: 1.5, bgcolor: '#F4F8F8', borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: GRID, gap: 2, px: 3, py: 1.5, bgcolor: '#F8FAFC', borderBottom: '1px solid', borderColor: 'divider' }}>
                 {HEADS.map((h) => (
                   <Typography key={h || 'x'} sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'text.secondary' }}>{h}</Typography>
                 ))}
@@ -177,9 +177,9 @@ export default function AdminStaff() {
                     size="small"
                     sx={{
                       width: 'fit-content',
-                      bgcolor: user.isActive ? 'rgba(16,185,129,0.12)' : 'rgba(227,30,36,0.1)',
-                      color: user.isActive ? '#0F8A5F' : '#C81E1E',
-                      fontWeight: 700, fontSize: '0.7rem', borderRadius: 999,
+                      bgcolor: user.isActive ? 'rgba(4,120,87,0.12)' : 'rgba(185,28,28,0.1)',
+                      color: user.isActive ? '#047857' : '#B91C1C',
+                      fontWeight: 700, fontSize: '0.7rem', borderRadius: 2,
                     }}
                   />
                   <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', display: { xs: 'none', md: 'block' } }}>
@@ -225,7 +225,7 @@ export default function AdminStaff() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setCreateOpen(false)} disabled={saving} sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button onClick={handleCreate} disabled={saving || !form.name || !form.email || form.password.length < 6} variant="contained" color="info" sx={{ borderRadius: 999, fontWeight: 700, px: 3 }}>
+          <Button onClick={handleCreate} disabled={saving || !form.name || !form.email || form.password.length < 6} variant="contained" color="info" sx={{ borderRadius: 2, fontWeight: 700, px: 3 }}>
             {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Create account'}
           </Button>
         </DialogActions>
@@ -238,7 +238,7 @@ export default function AdminStaff() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setResetFor(null)} disabled={resetting} sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button onClick={handleReset} disabled={resetting || newPassword.length < 6} variant="contained" color="info" sx={{ borderRadius: 999, fontWeight: 700, px: 3 }}>
+          <Button onClick={handleReset} disabled={resetting || newPassword.length < 6} variant="contained" color="info" sx={{ borderRadius: 2, fontWeight: 700, px: 3 }}>
             {resetting ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Update password'}
           </Button>
         </DialogActions>

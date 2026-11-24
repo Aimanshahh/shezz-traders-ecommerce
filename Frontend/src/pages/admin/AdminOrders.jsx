@@ -27,12 +27,12 @@ const STATUSES = [
 ]
 
 const STATUS_COLORS = {
-  Pending: { bg: 'rgba(251,55,8,0.1)', color: BRAND.orange },
+  Pending: { bg: 'rgba(180,83,9,0.1)', color: BRAND.orange },
   'Awaiting Payment': { bg: 'rgba(255,193,7,0.15)', color: '#B45309' },
-  Confirmed: { bg: 'rgba(0,131,143,0.1)', color: BRAND.tealDark },
-  Shipped: { bg: 'rgba(0,184,212,0.15)', color: BRAND.tealDark },
-  Delivered: { bg: 'rgba(16,185,129,0.12)', color: '#0F8A5F' },
-  Cancelled: { bg: 'rgba(227,30,36,0.1)', color: BRAND.red },
+  Confirmed: { bg: 'rgba(15,118,110,0.1)', color: BRAND.tealDark },
+  Shipped: { bg: 'rgba(20,184,166,0.15)', color: BRAND.tealDark },
+  Delivered: { bg: 'rgba(4,120,87,0.12)', color: '#047857' },
+  Cancelled: { bg: 'rgba(185,28,28,0.1)', color: BRAND.red },
 }
 
 const PAYMENT_LABELS = {
@@ -147,9 +147,9 @@ export default function AdminOrders() {
         <Box sx={{ mb: 3 }}>
           <Typography
             sx={{
-              fontFamily: '"Barlow Condensed", sans-serif',
+              fontFamily: 'inherit',
               fontWeight: 800,
-              fontSize: { xs: '1.5rem', md: '1.75rem' },
+              fontSize: { xs: '1.3rem', md: '1.45rem' },
               lineHeight: 1.1,
               letterSpacing: '-0.01em',
               color: 'text.primary',
@@ -171,7 +171,7 @@ export default function AdminOrders() {
             gap: 1,
             px: 2,
             py: 1,
-            borderRadius: 999,
+            borderRadius: 2,
             border: '1px solid',
             borderColor: 'divider',
             bgcolor: 'background.paper',
@@ -329,7 +329,7 @@ export default function AdminOrders() {
 
                   <Typography
                     sx={{
-                      fontFamily: '"Barlow Condensed", sans-serif',
+                      fontFamily: 'inherit',
                       fontWeight: 700,
                       fontSize: '0.95rem',
                       color: 'text.primary',
@@ -350,7 +350,7 @@ export default function AdminOrders() {
                         fontWeight: 700,
                         fontSize: '0.68rem',
                         height: 22,
-                        borderRadius: 999,
+                        borderRadius: 2,
                       }}
                     />
                   </Box>
@@ -509,13 +509,13 @@ export default function AdminOrders() {
                     sx={{
                       bgcolor:
                         selected.paymentStatus === 'paid'
-                          ? 'rgba(16,185,129,0.12)'
+                          ? 'rgba(4,120,87,0.12)'
                           : selected.paymentStatus === 'refunded'
-                          ? 'rgba(227,30,36,0.1)'
+                          ? 'rgba(185,28,28,0.1)'
                           : 'rgba(255,193,7,0.15)',
                       color:
                         selected.paymentStatus === 'paid'
-                          ? '#0F8A5F'
+                          ? '#047857'
                           : selected.paymentStatus === 'refunded'
                           ? BRAND.red
                           : '#B45309',
@@ -663,7 +663,7 @@ export default function AdminOrders() {
                       </Box>
                       <Typography
                         sx={{
-                          fontFamily: '"Barlow Condensed", sans-serif',
+                          fontFamily: 'inherit',
                           fontWeight: 700,
                           fontSize: '0.9rem',
                           whiteSpace: 'nowrap',
@@ -694,7 +694,7 @@ export default function AdminOrders() {
                 >
                   <Typography
                     sx={{
-                      fontFamily: '"Barlow Condensed", sans-serif',
+                      fontFamily: 'inherit',
                       fontWeight: 700,
                       fontSize: '1rem',
                     }}
@@ -703,7 +703,7 @@ export default function AdminOrders() {
                   </Typography>
                   <Typography
                     sx={{
-                      fontFamily: '"Barlow Condensed", sans-serif',
+                      fontFamily: 'inherit',
                       fontWeight: 800,
                       fontSize: '1.3rem',
                       color: 'info.main',
@@ -748,7 +748,7 @@ export default function AdminOrders() {
             color="error"
             sx={{
               textTransform: 'none',
-              borderRadius: 999,
+              borderRadius: 2,
               fontWeight: 700,
               px: 3,
             }}
@@ -810,7 +810,7 @@ function FilterChip({ label, count, active, onClick }) {
         textTransform: 'none',
         fontWeight: 600,
         fontSize: '0.78rem',
-        borderRadius: 999,
+        borderRadius: 2,
         px: 1.75,
         py: 0.6,
         minWidth: 'auto',
@@ -831,7 +831,7 @@ function FilterChip({ label, count, active, onClick }) {
           ml: 0.75,
           px: 0.6,
           py: 0.1,
-          borderRadius: 999,
+          borderRadius: 2,
           fontSize: '0.68rem',
           fontWeight: 700,
           bgcolor: active ? 'rgba(255,255,255,0.25)' : 'action.hover',
@@ -880,7 +880,7 @@ function EmptyState({ hasOrders }) {
           width: 72,
           height: 72,
           borderRadius: '50%',
-          bgcolor: 'rgba(0,131,143,0.08)',
+          bgcolor: 'rgba(15,118,110,0.08)',
           color: 'info.main',
           display: 'flex',
           alignItems: 'center',
@@ -892,7 +892,7 @@ function EmptyState({ hasOrders }) {
       </Box>
       <Typography
         sx={{
-          fontFamily: '"Barlow Condensed", sans-serif',
+          fontFamily: 'inherit',
           fontWeight: 700,
           fontSize: '1.35rem',
           color: 'text.primary',

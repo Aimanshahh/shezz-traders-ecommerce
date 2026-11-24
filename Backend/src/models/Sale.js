@@ -38,6 +38,9 @@ const saleSchema = new mongoose.Schema(
     total: { type: Number, required: true, min: 0 },
     amountPaid: { type: Number, default: 0, min: 0 }, // paid at the time of sale
     paidLater: { type: Number, default: 0, min: 0 }, // from payments recorded afterwards
+    // Discounts granted later, while taking a payment. They cancel part of the
+    // balance but are not money received, so `total` stays the invoice value.
+    discountLater: { type: Number, default: 0, min: 0 },
     returnedAmount: { type: Number, default: 0, min: 0 },
     refundedAmount: { type: Number, default: 0, min: 0 },
     paymentStatus: { type: String, enum: PAYMENT_STATUSES, default: 'paid' },

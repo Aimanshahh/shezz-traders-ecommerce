@@ -1,17 +1,19 @@
 import { Chip } from '@mui/material'
+import { ADMIN, chipSx } from '../../theme/adminTheme.js'
 
+// label + colours; STATUS_META is also read by the device screens for filter labels.
 export const STATUS_META = {
-  available: { label: 'Available', bg: 'rgba(16,185,129,0.12)', color: '#0F8A5F' },
-  reserved: { label: 'Reserved', bg: 'rgba(245,158,11,0.14)', color: '#B45309' },
-  sold: { label: 'Sold', bg: 'rgba(0,131,143,0.12)', color: '#00717A' },
-  returned: { label: 'Returned', bg: 'rgba(251,55,8,0.1)', color: '#C2410C' },
-  replacement: { label: 'Replacement', bg: 'rgba(99,102,241,0.12)', color: '#4338CA' },
-  faulty: { label: 'Faulty', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
-  lost: { label: 'Lost', bg: 'rgba(100,116,139,0.14)', color: '#475569' },
-  deactivated: { label: 'Deactivated', bg: 'rgba(100,116,139,0.14)', color: '#475569' },
-  box: { label: 'Box', bg: 'rgba(245,158,11,0.14)', color: '#B45309' },
-  not_found: { label: 'Not registered', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
-  invalid: { label: 'Invalid', bg: 'rgba(227,30,36,0.1)', color: '#C81E1E' },
+  available: { label: 'Available', bg: ADMIN.successSoft, color: ADMIN.success },
+  reserved: { label: 'Reserved', bg: ADMIN.warningSoft, color: ADMIN.warning },
+  sold: { label: 'Sold', bg: ADMIN.accentSoft, color: ADMIN.accent },
+  returned: { label: 'Returned', bg: ADMIN.warningSoft, color: ADMIN.warning },
+  replacement: { label: 'Replacement', bg: ADMIN.infoSoft, color: ADMIN.info },
+  faulty: { label: 'Faulty', bg: ADMIN.dangerSoft, color: ADMIN.danger },
+  lost: { label: 'Lost', bg: 'rgba(100,116,139,0.12)', color: '#475569' },
+  deactivated: { label: 'Deactivated', bg: 'rgba(100,116,139,0.12)', color: '#475569' },
+  box: { label: 'Box', bg: ADMIN.warningSoft, color: ADMIN.warning },
+  not_found: { label: 'Not registered', bg: ADMIN.dangerSoft, color: ADMIN.danger },
+  invalid: { label: 'Invalid', bg: ADMIN.dangerSoft, color: ADMIN.danger },
 }
 
 export const DEVICE_STATUS_LIST = [
@@ -28,21 +30,8 @@ export const DEVICE_STATUS_LIST = [
 export default function DeviceStatusChip({ status }) {
   const meta = STATUS_META[status] || {
     label: status,
-    bg: 'rgba(100,116,139,0.14)',
+    bg: 'rgba(100,116,139,0.12)',
     color: '#475569',
   }
-  return (
-    <Chip
-      label={meta.label}
-      size="small"
-      sx={{
-        bgcolor: meta.bg,
-        color: meta.color,
-        fontWeight: 700,
-        fontSize: '0.68rem',
-        height: 22,
-        borderRadius: 999,
-      }}
-    />
-  )
+  return <Chip label={meta.label} size="small" sx={chipSx(meta.bg, meta.color)} />
 }

@@ -100,9 +100,9 @@ export default function AdminProducts() {
           <Box>
             <Typography
               sx={{
-                fontFamily: '"Barlow Condensed", sans-serif',
+                fontFamily: 'inherit',
                 fontWeight: 800,
-                fontSize: { xs: '1.5rem', md: '1.75rem' },
+                fontSize: { xs: '1.3rem', md: '1.45rem' },
                 lineHeight: 1.1,
                 letterSpacing: '-0.01em',
                 color: 'text.primary',
@@ -124,7 +124,7 @@ export default function AdminProducts() {
             color="info"
             size="large"
             startIcon={<AddIcon />}
-            sx={{ borderRadius: 999, fontWeight: 700, px: 3, py: 1.2 }}
+            sx={{ borderRadius: 2, fontWeight: 700, px: 3, py: 1.2 }}
           >
             Add product
           </Button>
@@ -144,7 +144,7 @@ export default function AdminProducts() {
               gap: 1,
               px: 2,
               py: 1,
-              borderRadius: 999,
+              borderRadius: 2,
               border: '1px solid',
               borderColor: 'divider',
               bgcolor: 'background.paper',
@@ -168,7 +168,7 @@ export default function AdminProducts() {
             onChange={(e) => setCategoryFilter(e.target.value)}
             sx={{
               minWidth: 200,
-              '& .MuiOutlinedInput-root': { borderRadius: 999 },
+              '& .MuiOutlinedInput-root': { borderRadius: 2 },
             }}
           >
             {categories.map((c) => (
@@ -272,7 +272,7 @@ export default function AdminProducts() {
             color="error"
             sx={{
               textTransform: 'none',
-              borderRadius: 999,
+              borderRadius: 2,
               fontWeight: 700,
               px: 3,
             }}
@@ -457,7 +457,7 @@ function ProductRow({ product, last, onEdit, onDelete }) {
       {/* Price (desktop) */}
       <Typography
         sx={{
-          fontFamily: '"Barlow Condensed", sans-serif',
+          fontFamily: 'inherit',
           fontWeight: 700,
           fontSize: '0.95rem',
           color: 'text.primary',
@@ -493,19 +493,19 @@ function ProductRow({ product, last, onEdit, onDelete }) {
           size="small"
           sx={{
             bgcolor: outOfStock
-              ? 'rgba(227,30,36,0.1)'
+              ? 'rgba(185,28,28,0.1)'
               : product.isNew
-              ? 'rgba(251,55,8,0.1)'
-              : 'rgba(16,185,129,0.12)',
+              ? 'rgba(180,83,9,0.1)'
+              : 'rgba(4,120,87,0.12)',
             color: outOfStock
               ? BRAND.red
               : product.isNew
               ? BRAND.orange
-              : '#0F8A5F',
+              : '#047857',
             fontWeight: 700,
             fontSize: '0.68rem',
             height: 22,
-            borderRadius: 999,
+            borderRadius: 2,
           }}
         />
       </Box>
@@ -525,7 +525,7 @@ function ProductRow({ product, last, onEdit, onDelete }) {
             color: 'text.secondary',
             '&:hover': {
               color: 'info.main',
-              bgcolor: 'rgba(0,131,143,0.08)',
+              bgcolor: 'rgba(15,118,110,0.08)',
             },
           }}
         >
@@ -539,7 +539,7 @@ function ProductRow({ product, last, onEdit, onDelete }) {
             color: 'text.secondary',
             '&:hover': {
               color: 'error.main',
-              bgcolor: 'rgba(227,30,36,0.08)',
+              bgcolor: 'rgba(185,28,28,0.08)',
             },
           }}
         >
@@ -567,7 +567,7 @@ function EmptyState({ hasProducts, onClear }) {
           width: 72,
           height: 72,
           borderRadius: '50%',
-          bgcolor: 'rgba(0,131,143,0.08)',
+          bgcolor: 'rgba(15,118,110,0.08)',
           color: 'info.main',
           display: 'flex',
           alignItems: 'center',
@@ -580,7 +580,7 @@ function EmptyState({ hasProducts, onClear }) {
 
       <Typography
         sx={{
-          fontFamily: '"Barlow Condensed", sans-serif',
+          fontFamily: 'inherit',
           fontWeight: 700,
           fontSize: '1.35rem',
           color: 'text.primary',
@@ -609,7 +609,7 @@ function EmptyState({ hasProducts, onClear }) {
           onClick={onClear}
           variant="outlined"
           color="info"
-          sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 600 }}
+          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
         >
           Clear filters
         </Button>
@@ -620,7 +620,7 @@ function EmptyState({ hasProducts, onClear }) {
           variant="contained"
           color="info"
           startIcon={<AddIcon />}
-          sx={{ borderRadius: 999, fontWeight: 700, px: 3 }}
+          sx={{ borderRadius: 2, fontWeight: 700, px: 3 }}
         >
           Add your first product
         </Button>
