@@ -67,6 +67,7 @@ const saleSchema = new mongoose.Schema(
       sentAt: { type: Date, default: null },
     },
     status: { type: String, enum: SALE_STATUSES, default: 'completed', index: true },
+    importBatch: { type: String, default: null, index: true },
   },
   { timestamps: true }
 )

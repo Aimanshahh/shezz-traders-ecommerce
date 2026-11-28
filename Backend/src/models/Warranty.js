@@ -12,6 +12,7 @@ const warrantySchema = new mongoose.Schema(
     months: { type: Number, required: true },
     status: { type: String, enum: ['active', 'void'], default: 'active' },
     policy: { type: String, default: 'standard' },
+    importBatch: { type: String, default: null, index: true },
   },
   { timestamps: true }
 )
