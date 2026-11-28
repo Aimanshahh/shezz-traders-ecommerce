@@ -42,6 +42,8 @@ import AdminReturns from './pages/admin/AdminReturns.jsx'
 import AdminReturnNew from './pages/admin/AdminReturnNew.jsx'
 import AdminReturnDetail from './pages/admin/AdminReturnDetail.jsx'
 import AdminReports from './pages/admin/AdminReports.jsx'
+import AdminHistoricalImport from './pages/admin/AdminHistoricalImport.jsx'
+import AdminPendingCustomers from './pages/admin/AdminPendingCustomers.jsx'
 
 // Salesperson
 import StaffLogin from './pages/staff/StaffLogin.jsx'
@@ -86,6 +88,8 @@ function AdminRoutes() {
       <Route path="/admin/returns/new" element={<AdminReturnNew />} />
       <Route path="/admin/returns/:id" element={<AdminReturnDetail />} />
       <Route path="/admin/reports" element={<AdminReports />} />
+      <Route path="/admin/historical-import" element={<AdminHistoricalImport />} />
+      <Route path="/admin/pending-customers" element={<AdminPendingCustomers />} />
       <Route path="/admin/staff" element={<AdminStaff />} />
       </Routes>
     </ThemeProvider>

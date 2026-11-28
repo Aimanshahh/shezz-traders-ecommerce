@@ -21,6 +21,7 @@ import reportRoutes from './src/routes/reports.js'
 import adminUserRoutes from './src/routes/adminUsers.js'
 import staffRoutes from './src/routes/staff.js'
 import integrationRoutes from './src/routes/integrations.js'
+import historicalImportRoutes from './src/routes/historicalImports.js'
 
 
 dotenv.config()
@@ -97,6 +98,8 @@ app.use('/api/returns', returnRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/staff', staffRoutes)
 app.use('/api/integrations', integrationRoutes)
+// Historical migration: separate from every live stock route on purpose.
+app.use('/api/imports/historical', historicalImportRoutes)
 
 // ─── 404
 app.use((req, res) => {

@@ -23,6 +23,14 @@ const deviceSchema = new mongoose.Schema(
     replaces: { type: mongoose.Schema.Types.ObjectId, ref: 'Device', default: null },
     replacedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Device', default: null },
     importBatch: { type: String, default: null },
+    // ── Historical import only. Null/empty on every device created by normal use. ──
+    // The month the stock arrived, exactly as the old sheet records it ('YYYY-MM').
+    receivedMonth: { type: String, default: null, index: true },
+    recordSource: { type: String, enum: ['live', 'historical_import'], default: 'live', index: true },
+    // Sold, but the customer is still waiting for Operations/Admin to supply details.
+    customerPending: { type: Boolean, default: false, index: true },
+    // Original sale date from the sheet, kept even when no invoice could be created yet.
+    saleDateHint: { type: Date, default: null },
     notes: { type: String, default: '' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
   },

@@ -17,6 +17,8 @@ import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined'
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined'
 import AssignmentReturnOutlinedIcon from '@mui/icons-material/AssignmentReturnOutlined'
 import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined'
+import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
+import PersonAddAltOutlinedIcon from '@mui/icons-material/PersonAddAltOutlined'
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined'
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined'
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined'
@@ -38,6 +40,8 @@ const NAV_GROUPS = [
     heading: 'Operations',
     items: [
       { label: 'Devices / IMEI', to: '/admin/devices', icon: QrCodeScannerOutlinedIcon, prefix: true },
+      { label: 'Historical import', to: '/admin/historical-import', icon: UploadFileOutlinedIcon },
+      { label: 'Pending customers', to: '/admin/pending-customers', icon: PersonAddAltOutlinedIcon },
       { label: 'Boxes & cartons', to: '/admin/boxes', icon: ViewInArOutlinedIcon, prefix: true },
       { label: 'Sales & invoices', to: '/admin/sales', icon: PointOfSaleOutlinedIcon, prefix: true },
       { label: 'Customers & ledger', to: '/admin/customers', icon: PeopleAltOutlinedIcon, prefix: true },

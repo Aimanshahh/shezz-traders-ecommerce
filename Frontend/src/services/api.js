@@ -628,3 +628,47 @@ export async function rejectSale(id, reason = '') {
     body: JSON.stringify({ reason }),
   })
 }
+
+// ─── Historical stock import ──────────────────────────
+export async function previewHistoricalImport(payload) {
+  return request('/imports/historical/preview', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function commitHistoricalImport(payload) {
+  return request('/imports/historical/commit', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function getHistoricalImports() {
+  const data = await request('/imports/historical/batches')
+  return data.batches
+}
+
+export async function rollbackHistoricalImport(batch) {
+  return request(`/imports/historical/batches/${encodeURIComponent(batch)}/rollback`, {
+    method: 'POST',
+  })
+}
+
+export async function getPendingCustomers(status = 'pending') {
+  return request(`/imports/historical/pending?status=${encodeURIComponent(status)}`)
+}
+
+export async function resolvePendingCustomer(id, customerId) {
+  return request(`/imports/historical/pending/${id}/resolve`, {
+    method: 'POST',
+    body: JSON.stringify({ customerId }),
+  })
+}
+
+export async function rejectPendingCustomer(id, reason = '') {
+  return request(`/imports/historical/pending/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}

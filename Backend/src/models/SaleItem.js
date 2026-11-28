@@ -12,6 +12,7 @@ const saleItemSchema = new mongoose.Schema(
     boxCode: { type: String, default: '' },
     unitPrice: { type: Number, required: true, min: 0 },
     total: { type: Number, required: true, min: 0 },
+    importBatch: { type: String, default: null, index: true },
   },
   { timestamps: true }
 )

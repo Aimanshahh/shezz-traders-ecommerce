@@ -11,6 +11,7 @@ const deviceHistorySchema = new mongoose.Schema(
     performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
     performedByName: { type: String, default: '' },
     meta: { type: mongoose.Schema.Types.Mixed, default: null },
+    importBatch: { type: String, default: null, index: true },
   },
   { timestamps: true }
 )
